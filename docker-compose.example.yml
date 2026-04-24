@@ -1,0 +1,25 @@
+# =============================================================================
+# docker-compose.example.yml — Example with sample credentials
+# =============================================================================
+# Copy this file to docker-compose.yml and fill in your BMC details.
+#
+#   cp docker-compose.example.yml docker-compose.yml
+#   # Edit docker-compose.yml with your IP/user/pass
+#   docker compose up --build
+#
+# =============================================================================
+
+services:
+  ipmi-dashboard:
+    build: .
+    image: ipmi-dashboard:latest
+    container_name: ipmi-dashboard
+    environment:
+      - IPMI_HOST=192.168.1.100    # <-- your BMC IP address
+      - IPMI_USER=ADMIN            # <-- your IPMI username
+      - IPMI_PASS=your-password    # <-- your IPMI password
+    network_mode: host
+    tty: true
+    stdin_open: true
+    command: []
+    restart: "no"
