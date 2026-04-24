@@ -1,11 +1,12 @@
 # =============================================================================
-# docker-compose.example.yml — Example with sample credentials
+# docker-compose.example.yml — Template for new users
 # =============================================================================
 # Copy this file to docker-compose.yml and fill in your BMC details.
 #
 #   cp docker-compose.example.yml docker-compose.yml
 #   # Edit docker-compose.yml with your IP/user/pass
-#   docker compose up --build
+#   docker compose up --build -d
+#   # Open http://your-synology-ip:8080
 #
 # =============================================================================
 
@@ -18,8 +19,7 @@ services:
       - IPMI_HOST=192.168.1.100    # <-- your BMC IP address
       - IPMI_USER=ADMIN            # <-- your IPMI username
       - IPMI_PASS=your-password    # <-- your IPMI password
+      - WEB_PORT=8080              # Web UI port
+      - WEB_REFRESH=10             # Auto-refresh seconds
     network_mode: host
-    tty: true
-    stdin_open: true
-    command: []
-    restart: "no"
+    restart: unless-stopped
