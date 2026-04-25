@@ -693,22 +693,80 @@ document.addEventListener('click', () => {{
 </html>"""
 
 
+def build_error_page(error_msg):
+    """Build an error page when BMC is not reachable."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPMI Dashboard — Connection Error</title>
+<meta http-equiv="refresh" content="15">
+<style>
+  :root {{
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #c9d1d9; --text-dim: #8b949e;
+    --red: #f85149; --cyan: #58a6ff; --yellow: #d29922;
+  }}
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    background: var(--bg); color: var(--text);
+    padding: 40px 20px; max-width: 700px; margin: 0 auto;
+  }}
+  h1 {{ color: var(--red); font-size: 1.4em; margin-bottom: 20px; }}
+  .card {{
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px; margin-bottom: 16px;
+  }}
+  .error {{ color: var(--red); font-size: 1em; line-height: 1.6; }}
+  .hint {{ color: var(--text-dim); font-size: 0.9em; margin-top: 16px; line-height: 1.8; }}
+  .hint li {{ margin: 4px 0; }}
+  .hint code {{ color: var(--cyan); background: var(--border); padding: 2px 6px; border-radius: 3px; }}
+  .retry {{ color: var(--yellow); font-size: 0.85em; margin-top: 16px; }}
+</style>
+</head>
+<body>
+<h1>IPMI DASHBOARD — CONNECTION ERROR</h1>
+<div class="card">
+  <div class="error">{html.escape(error_msg)}</div>
+  <div class="hint">
+    <strong>Troubleshooting:</strong>
+    <ul>
+      <li>Check your <code>IPMI_HOST</code> is set to the correct BMC IP address</li>
+      <li>Check your <code>IPMI_USER</code> and <code>IPMI_PASS</code> are correct</li>
+      <li>Verify the BMC is reachable: <code>ping {html.escape(IPMI_HOST or "YOUR_BMC_IP")}</code></li>
+      <li>Make sure <code>network_mode: host</code> is in your docker-compose</li>
+      <li>Check Portainer Stack environment variables are set (Advanced Mode)</li>
+    </ul>
+  </div>
+  <div class="retry">Auto-retrying in 15 seconds...</div>
+</div>
+</body>
+</html>"""
+
+
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     """Handle HTTP requests."""
 
     def do_GET(self):
         if self.path == "/" or self.path == "/index.html":
-            page = build_dashboard()
-            self.send_response(200)
+            if not BMC_CONNECTED:
+                page = build_error_page(BMC_ERROR)
+                self.send_response(503)
+            else:
+                page = build_dashboard()
+                self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-cache, no-store")
             self.end_headers()
             self.wfile.write(page.encode("utf-8"))
         elif self.path == "/health":
-            self.send_response(200)
+            status = "ok" if BMC_CONNECTED else f"error: {BMC_ERROR}"
+            self.send_response(200 if BMC_CONNECTED else 503)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
-            self.wfile.write(b"ok")
+            self.wfile.write(status.encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -780,19 +838,27 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-if __name__ == "__main__":
-    if not IPMI_HOST:
-        print("ERROR: IPMI_HOST environment variable is required")
-        exit(1)
+# Global connection state
+BMC_CONNECTED = False
+BMC_ERROR = ""
 
-    # Test BMC connectivity first
-    print(f"IPMI Dashboard starting on port {PORT}")
-    print(f"Connecting to BMC at {IPMI_HOST}...")
-    test = ipmi("mc", "info")
-    if not test:
-        print(f"ERROR: Cannot reach BMC at {IPMI_HOST}")
-        exit(1)
-    print(f"Connected. Serving at http://0.0.0.0:{PORT}")
+if __name__ == "__main__":
+    print(f"IPMI Dashboard v1.2.0 starting on port {PORT}")
+
+    if not IPMI_HOST:
+        BMC_ERROR = "IPMI_HOST environment variable is not set. Configure it in your docker-compose.yml or Portainer stack environment variables."
+        print(f"WARNING: {BMC_ERROR}")
+        print(f"Serving error page at http://0.0.0.0:{PORT}")
+    else:
+        print(f"Connecting to BMC at {IPMI_HOST}...")
+        test = ipmi("mc", "info")
+        if not test:
+            BMC_ERROR = f"Cannot connect to BMC at {IPMI_HOST}. Check: 1) BMC IP is correct  2) BMC is reachable from this host  3) IPMI credentials are correct  4) IPMI service is enabled in BIOS"
+            print(f"WARNING: {BMC_ERROR}")
+            print(f"Serving error page at http://0.0.0.0:{PORT}")
+        else:
+            BMC_CONNECTED = True
+            print(f"Connected to BMC at {IPMI_HOST}. Serving at http://0.0.0.0:{PORT}")
 
     server = http.server.HTTPServer(("0.0.0.0", PORT), DashboardHandler)
     try:
