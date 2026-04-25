@@ -33,24 +33,19 @@ jobs:
         shell: msys2 {0}
         working-directory: ipmitool
         run: |
-          # Add strptime shim for Windows
-          cat >> lib/ipmi_sel.c << 'SHIM'
-
-          /* strptime shim for Windows/MSYS2 */
-          #ifndef HAVE_STRPTIME
-          char * strptime(const char *buf, const char *fmt, struct tm *tm) {
-              /* Minimal implementation - just return NULL to skip time parsing */
-              return NULL;
-          }
-          #endif
-          SHIM
+          # Fix strptime: add #define _GNU_SOURCE before any includes
+          sed -i '1i #define _GNU_SOURCE' lib/ipmi_sel.c
+          sed -i '1i #define _GNU_SOURCE' src/ipmitool.c
+          # Fix potential format truncation warnings
+          sed -i '1i #define _GNU_SOURCE' lib/ipmi_sdr.c
+          sed -i '1i #define _GNU_SOURCE' lib/ipmi_time.c
 
       - name: Build ipmitool
         shell: msys2 {0}
         working-directory: ipmitool
         run: |
           ./bootstrap
-          ./configure             --enable-static             --disable-shared             --disable-ipmishell             CFLAGS="-O2 -Wno-error -Wno-implicit-function-declaration -Wno-format-truncation"
+          ./configure             --enable-static             --disable-shared             --disable-ipmishell             CFLAGS="-O2 -Wno-error -Wno-format-truncation"
           make -j$(nproc)
           strip src/ipmitool.exe
           ls -lh src/ipmitool.exe
