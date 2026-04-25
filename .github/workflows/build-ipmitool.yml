@@ -11,177 +11,60 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
-      - name: Install MinGW cross-compiler
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64 autoconf automake libtool git
+      - uses: actions/checkout@v4
 
-      - name: Clone ipmitool
-        run: git clone --depth 1 --branch IPMITOOL_1_8_19 https://github.com/ipmitool/ipmitool.git
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            git
+            autoconf
+            automake
+            make
+            gcc
+            gettext-devel
+            libtool
+            pkg-config
 
-      - name: Patch source for MinGW
+      - name: Checkout ipmitool source
+        run: git clone --depth 1 --branch 1.8.19 https://github.com/ipmitool/ipmitool.git
+
+      - name: Build ipmitool
         working-directory: ipmitool
         run: |
-          # Stub out files that need full POSIX/SOL/syslog API
-          # We only need: sdr, sel, sensor, raw, mc, fru, chassis, lan
-          echo "" > lib/ipmi_sol.c
-          echo "" > lib/ipmi_main.c
-          echo "" > lib/log.c
-
-          mkdir -p compat/sys compat/netinet compat/arpa
-
-          # sys/ioctl.h
-          cat > compat/sys/ioctl.h << 'EOF'
-          #ifndef _SYS_IOCTL_H
-          #define _SYS_IOCTL_H
-          #include <winsock2.h>
-          #include <io.h>
-          #define ioctl ioctlsocket
-          #endif
-          EOF
-
-          # sys/select.h
-          cat > compat/sys/select.h << 'EOF'
-          #ifndef _SYS_SELECT_H
-          #define _SYS_SELECT_H
-          #include <winsock2.h>
-          #endif
-          EOF
-
-          # netinet/in.h
-          cat > compat/netinet/in.h << 'EOF'
-          #ifndef _NETINET_IN_H
-          #define _NETINET_IN_H
-          #include <winsock2.h>
-          #include <ws2tcpip.h>
-          #endif
-          EOF
-
-          # arpa/inet.h
-          cat > compat/arpa/inet.h << 'EOF'
-          #ifndef _ARPA_INET_H
-          #define _ARPA_INET_H
-          #include <winsock2.h>
-          #include <ws2tcpip.h>
-          #endif
-          EOF
-
-          # syslog.h
-          cat > compat/syslog.h << 'EOF'
-          #ifndef _SYSLOG_H
-          #define _SYSLOG_H
-          #include <stdarg.h>
-          #include <stdio.h>
-          #define LOG_EMERG 0
-          #define LOG_ALERT 1
-          #define LOG_CRIT 2
-          #define LOG_ERR 3
-          #define LOG_WARNING 4
-          #define LOG_NOTICE 5
-          #define LOG_INFO 6
-          #define LOG_DEBUG 7
-          static inline void openlog(const char *a, int b, int c) { (void)a; (void)b; (void)c; }
-          static inline void syslog(int pri, const char *fmt, ...) {
-            va_list ap; va_start(ap, fmt);
-            fprintf(stderr, "[syslog %d] ", pri);
-            vfprintf(stderr, fmt, ap);
-            fprintf(stderr, "\n");
-            va_end(ap);
-          }
-          static inline void closelog(void) {}
-          #endif
-          EOF
-
-          # sys/socket.h
-          cat > compat/sys/socket.h << 'EOF'
-          #ifndef _SYS_SOCKET_H
-          #define _SYS_SOCKET_H
-          #include <winsock2.h>
-          #include <ws2tcpip.h>
-          typedef int socklen_t;
-          typedef SSIZE_T ssize_t;
-          #endif
-          EOF
-
-          # sys/timeb.h
-          cat > compat/sys/timeb.h << 'EOF'
-          #ifndef _SYS_TIMEB_H
-          #define _SYS_TIMEB_H
-          #include <sys/time.h>
-          #endif
-          EOF
-
-          # netdb.h
-          cat > compat/netdb.h << 'EOF'
-          #ifndef _NETDB_H
-          #define _NETDB_H
-          #include <winsock2.h>
-          #include <ws2tcpip.h>
-          #define AI_ALL 0x0100
-          #endif
-          EOF
-
-          # unistd.h
-          cat > compat/unistd.h << 'EOF'
-          #ifndef _UNISTD_H
-          #define _UNISTD_H
-          #include <io.h>
-          #include <process.h>
-          #define getpid _getpid
-          #define close _close
-          #define read _read
-          #define write _write
-          #define strdup _strdup
-          #define rmdir _rmdir
-          #define fork() -1
-          #define execv(a,b) -1
-          #endif
-          EOF
-
-          # getopt.h (MinGW has its own but just in case)
-          cat > compat/getopt.h << 'EOF'
-          #ifndef _GETOPT_H
-          #define _GETOPT_H
-          #include <getopt.h>
-          #endif
-          EOF
-
-      - name: Configure and build
-        working-directory: ipmitool
-        run: |
-          export CC=x86_64-w64-mingw32-gcc
-          ./bootstrap
-          ./configure             --host=x86_64-w64-mingw32             --enable-static             --disable-shared             --disable-intf-open             --disable-intf-free             --disable-intf-imb             --disable-intf-lipmi             --disable-intf-bmc             --disable-ipmishell             --disable-internal-md5             CFLAGS="-O2 -I$(pwd)/compat -Wno-error -Wno-implicit-function-declaration -Wno-format-truncation -Wno-incompatible-pointer-types -Wno-int-conversion"             LDFLAGS="-static"             LIBS="-lws2_32 -liphlpapi"
+          export CFLAGS="-O2 -Wno-error -Wno-format-truncation"
+          export LDFLAGS="-static-libgcc -static-libstdc++"
+          ./bootstrap || true
+          ./configure --enable-static --disable-shared --disable-intf-free --disable-intf-usb
           make -j$(nproc) || true
 
-      - name: Verify and strip
+      - name: Package with MSYS2 runtime
         working-directory: ipmitool
         run: |
           if [ -f src/ipmitool.exe ]; then
-            echo "=== DLL Dependencies ==="
-            x86_64-w64-mingw32-objdump -p src/ipmitool.exe | grep "DLL Name" || echo "NONE (fully static!)"
-            x86_64-w64-mingw32-strip src/ipmitool.exe
+            strip src/ipmitool.exe
             ls -lh src/ipmitool.exe
             echo "BUILD_SUCCESS=true" >> $GITHUB_ENV
           else
-            echo "ipmitool.exe NOT FOUND"
-            find . -name "ipmitool.exe" 2>/dev/null || true
             echo "BUILD_SUCCESS=false" >> $GITHUB_ENV
           fi
 
-      - name: Upload artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ipmitool-windows
-          path: ipmitool/src/ipmitool.exe
-
-      - name: Update release
+      - name: Upload to release
         if: env.BUILD_SUCCESS == 'true'
-        shell: bash
+        working-directory: ipmitool
+        run: |
+          mkdir -p dist
+          cp src/ipmitool.exe dist/
+          # Bundle the MSYS2 runtime DLL that ipmitool needs
+          cp /ucrt64/bin/msys-2.0.dll dist/ || cp /usr/bin/msys-2.0.dll dist/ || true
+          ls -lh dist/
+          gh release delete latest --yes || true
+          gh release create latest dist/* --title "Latest Build" --notes "Auto-built ipmitool.exe with MSYS2 runtime"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete latest --repo ${{ github.repository }} --yes || true
-          sleep 2
-          gh release create latest ipmitool/src/ipmitool.exe             --repo ${{ github.repository }}             --title "ipmitool.exe (latest build)"             --notes "Statically linked Windows ipmitool.exe — no DLL dependencies. Built from official ipmitool 1.8.19 source."
