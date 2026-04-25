@@ -86,11 +86,57 @@ jobs:
           #endif
           EOF
 
-          # sys/timeb.h might be needed
+          # sys/socket.h
+          cat > compat/sys/socket.h << 'EOF'
+          #ifndef _SYS_SOCKET_H
+          #define _SYS_SOCKET_H
+          #include <winsock2.h>
+          #include <ws2tcpip.h>
+          typedef int socklen_t;
+          typedef SSIZE_T ssize_t;
+          #endif
+          EOF
+
+          # sys/timeb.h
           cat > compat/sys/timeb.h << 'EOF'
           #ifndef _SYS_TIMEB_H
           #define _SYS_TIMEB_H
           #include <sys/time.h>
+          #endif
+          EOF
+
+          # netdb.h
+          cat > compat/netdb.h << 'EOF'
+          #ifndef _NETDB_H
+          #define _NETDB_H
+          #include <winsock2.h>
+          #include <ws2tcpip.h>
+          #define AI_ALL 0x0100
+          #endif
+          EOF
+
+          # unistd.h
+          cat > compat/unistd.h << 'EOF'
+          #ifndef _UNISTD_H
+          #define _UNISTD_H
+          #include <io.h>
+          #include <process.h>
+          #define getpid _getpid
+          #define close _close
+          #define read _read
+          #define write _write
+          #define strdup _strdup
+          #define rmdir _rmdir
+          #define fork() -1
+          #define execv(a,b) -1
+          #endif
+          EOF
+
+          # getopt.h (MinGW has its own but just in case)
+          cat > compat/getopt.h << 'EOF'
+          #ifndef _GETOPT_H
+          #define _GETOPT_H
+          #include <getopt.h>
           #endif
           EOF
 
