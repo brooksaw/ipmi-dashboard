@@ -22,10 +22,9 @@ jobs:
             libtool
             make
             gcc
+            gettext
             gettext-devel
             libiconv-devel
-            gettext-tools
-            libtool
 
       - name: Clone ipmitool
         shell: msys2 {0}
