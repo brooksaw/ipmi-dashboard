@@ -45,7 +45,7 @@ jobs:
         working-directory: ipmitool
         run: |
           ./bootstrap
-          ./configure             --enable-static             --disable-shared             --disable-ipmishell             CFLAGS="-O2 -static -Wno-error -Wno-format-truncation"             LDFLAGS="-static -all-static"             LIBS="-lintl -liconv"
+          ./configure             --enable-static             --disable-shared             --disable-ipmishell             CFLAGS="-O2 -Wno-error -Wno-format-truncation"             LDFLAGS="-static -static-libgcc"             LIBS="-lintl -liconv"
           make -j$(nproc)
           
           # Verify it is statically linked (no DLL dependencies)
