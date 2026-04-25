@@ -55,7 +55,7 @@ jobs:
             echo "BUILD_SUCCESS=false" >> $GITHUB_ENV
           fi
 
-      - name: Upload to release
+      - name: Package distribution
         if: env.BUILD_SUCCESS == 'true'
         working-directory: ipmitool
         run: |
@@ -64,7 +64,14 @@ jobs:
           # Bundle the MSYS2 runtime DLL that ipmitool needs
           cp /ucrt64/bin/msys-2.0.dll dist/ || cp /usr/bin/msys-2.0.dll dist/ || true
           ls -lh dist/
+
+      - name: Upload to release
+        if: env.BUILD_SUCCESS == 'true'
+        working-directory: ipmitool
+        shell: bash
+        run: |
           gh release delete latest --yes || true
-          gh release create latest dist/* --title "Latest Build" --notes "Auto-built ipmitool.exe with MSYS2 runtime"
+          sleep 2
+          gh release create latest dist/ipmitool.exe dist/msys-2.0.dll             --title "Latest Build"             --notes "Auto-built ipmitool.exe with MSYS2 runtime"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
