@@ -68,10 +68,9 @@ jobs:
       - name: Upload to release
         if: env.BUILD_SUCCESS == 'true'
         working-directory: ipmitool
-        shell: bash
+        shell: powershell
         run: |
-          gh release delete latest --yes || true
-          sleep 2
-          gh release create latest dist/ipmitool.exe dist/msys-2.0.dll             --title "Latest Build"             --notes "Auto-built ipmitool.exe with MSYS2 runtime"
+          gh release delete latest --yes 2>$null; if ($LASTEXITCODE -ne 0) { echo "no existing release" }
+          gh release create latest "dist/ipmitool.exe" "dist/msys-2.0.dll" --title "Latest Build" --notes "Auto-built ipmitool.exe with MSYS2 runtime"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
