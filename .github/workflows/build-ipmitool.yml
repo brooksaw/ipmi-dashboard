@@ -33,7 +33,7 @@ jobs:
             pkg-config
 
       - name: Checkout ipmitool source
-        run: git clone --depth 1 --branch 1.8.19 https://github.com/ipmitool/ipmitool.git
+        run: git clone --depth 1 --branch IPMITOOL_1_8_19 https://github.com/ipmitool/ipmitool.git
 
       - name: Build ipmitool
         working-directory: ipmitool
