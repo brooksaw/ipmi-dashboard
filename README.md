@@ -1,52 +1,84 @@
 # Supermicro IPMI Health Dashboard
 
-A lightweight Docker container that connects to any Supermicro server's BMC/IPMI interface and displays a full health dashboard — temperatures, fan speeds, voltages, power status, and the System Event Log (SEL).
+A lightweight Docker container that connects to any Supermicro server's BMC/IPMI interface and displays a full health dashboard with **fan control** — temperatures, fan speeds, voltages, power status, and the System Event Log (SEL).
 
 Designed for Synology Docker but works anywhere Docker runs.
 
 ## What It Shows
+
+![Dashboard](https://img.shields.io/badge/Web_UI-Dark_Theme-0d1117?style=flat-square)
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║          SUPERMICRO IPMI HEALTH DASHBOARD                   ║
 ╚══════════════════════════════════════════════════════════════╝
   BMC: 192.168.1.100  |  Board: X10SRi-F  |  FW: 3.65
-  Time: 2026-04-25 11:20:00 NZT
 
-  Fan Mode: Standard
-  Fan Duty: Zone0=64%  Zone1=64%
+  ── FAN CONTROL ───────────────────────────────────────────
+  Current Mode: Standard
+  Current Duty: Zone0=64%  Zone1=64%
+
+  Mode: [Heavy Duty] [Standard*] [Full] [Optimal] [PUE2]
+
+  Duty Cycle:
+    Zone 0 ═══════════════●═══  50%
+    Zone 1 ═══════════════●═══  50%
+
+  Quick Presets:
+    [Quiet] [Normal] [Cool] [Full Blast] [Auto (Reset)]
+
+  [Apply Changes]
 
   ── TEMPERATURES ──────────────────────────────────────────
   CPU Temp                   34°C  OK
   PCH Temp                   39°C  OK
   System Temp                29°C  OK
   Peripheral Temp            32°C  OK
-  ...
 
   ── FAN SPEEDS ────────────────────────────────────────────
   FAN1                  1400 RPM  OK
   FAN2                  1350 RPM  OK
   FANA                  1300 RPM  OK
-  Total: 6 fans, 3 OK
 
   ── KEY VOLTAGES ──────────────────────────────────────────
   12V                       11.87 Volts
   5VCC                       4.95 Volts
   3.3VCC                     3.27 Volts
   VBAT                       3.05 Volts
-  ...
 
   ── POWER STATUS ──────────────────────────────────────────
-  Chassis Power: Chassis Power is on
-  Power Draw: 85W
+  Chassis Power: on | Power Draw: 85W
 
-  ── SYSTEM EVENT LOG (last 50 entries) ──────────
-  Entries: 128  |  Used: 25%  |  Overflow: false
-  ...color-coded event log...
+  ── SYSTEM EVENT LOG (last 50) ────────────────────────────
+  Entries: 128 | Used: 25% | Overflow: false
+  [Clear SEL Log]
 
   ── ALERTS ───────────────────────────────────────────────
   No alerts — all systems nominal.
 ```
+
+## Fan Control
+
+### Quick Presets
+
+| Preset | Mode | Zone 0 | Zone 1 | Description |
+|--------|------|--------|--------|-------------|
+| **Quiet** | Heavy Duty | 30% | 20% | Near-silent, low airflow |
+| **Normal** | Heavy Duty | 50% | 40% | Balanced quiet/cool |
+| **Cool** | Standard | 70% | 60% | Higher airflow |
+| **Full Blast** | Full | 100% | 100% | Maximum cooling |
+| **Auto (Reset)** | Standard | — | — | Return to BMC auto control |
+
+### Manual Control
+1. Select a **mode** using the toggle buttons
+2. Adjust **Zone 0** and **Zone 1** duty cycle sliders (10-100%)
+3. Click **Apply Changes**
+
+The BMC requires a brief transition through Full mode when switching — this is handled automatically with proper timing.
+
+### Fan Zones
+- **Zone 0** — CPU fans (FAN1-FAN4 on most boards)
+- **Zone 1** — Peripheral/case fans (FANA-FANB on most boards)
 
 ## Quick Start (Synology)
 
@@ -58,7 +90,7 @@ ssh admin@your-synology-ip
 ### 2. Clone this repo
 ```bash
 cd /volume1/docker   # or wherever you keep Docker projects
-git clone https://github.com/YOUR-REPO/ipmi-dashboard.git
+git clone https://github.com/brooksaw/ipmi-dashboard.git
 cd ipmi-dashboard
 ```
 
@@ -73,44 +105,17 @@ environment:
   - IPMI_HOST=192.168.1.100    # Your BMC/IPMI IP address
   - IPMI_USER=ADMIN            # Your IPMI username (default: ADMIN)
   - IPMI_PASS=your-password    # Your IPMI password
+  - WEB_PORT=8080              # Web UI port (default: 8080)
+  - WEB_REFRESH=10             # Auto-refresh interval in seconds (default: 10)
 ```
 
 ### 4. Build and run
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-That's it. You'll see the full health dashboard printed to your terminal.
-
-## Usage Options
-
-### One-shot (run once, print, exit)
-```bash
-docker compose up --build
-```
-
-### Show more SEL log entries (e.g. 100)
-Edit `docker-compose.yml`, change the command line:
-```yaml
-command: ["-l", "100"]
-```
-
-### Watch mode (auto-refresh every 10 seconds)
-```yaml
-command: ["-w", "-i", "10"]
-```
-
-### Command-line flags
-```
-  -H <host>    BMC/IPMI IP address
-  -U <user>    IPMI username
-  -P <pass>    IPMI password
-  -l <lines>   SEL log lines to show (default: 50)
-  -w           Watch mode (continuous refresh)
-  -i <secs>    Watch interval in seconds (default: 5)
-  -v           Version
-  -h           Help
-```
+### 5. Open the dashboard
+Point your browser at: `http://your-synology-ip:8080`
 
 ## Synology Container Manager (GUI)
 
@@ -123,33 +128,36 @@ If you prefer the Synology GUI:
 5. Edit the environment variables in the compose file
 6. Click **Build and Start**
 
-## Running Without Docker
+## Environment Variables
 
-If you have a Linux machine with `ipmitool` installed:
-
-```bash
-# Install ipmitool
-sudo apt-get install ipmitool   # Debian/Ubuntu
-sudo yum install ipmitool       # RHEL/CentOS
-
-# Run directly
-chmod +x ipmi-dashboard.sh
-./ipmi-dashboard.sh -H 192.168.1.100 -U ADMIN -P your-password
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `IPMI_HOST` | *(required)* | BMC/IPMI IP address |
+| `IPMI_USER` | `ADMIN` | IPMI username |
+| `IPMI_PASS` | *(required)* | IPMI password |
+| `WEB_PORT` | `8080` | Web dashboard port |
+| `WEB_REFRESH` | `10` | Auto-refresh interval (seconds) |
 
 ## How It Works
 
 - Uses `ipmitool` over LAN+ (IPMI 2.0) to query the BMC
-- Supermicro OEM raw commands for fan mode and duty cycle
-- Color-coded output: green=OK, yellow=warning, red=critical
-- Alert thresholds: CPU >70°C warning, >85°C critical; fans <500 RPM warning, <200 RPM critical
-- SEL events are color-coded by type (fan/temperature/power)
+- Supermicro OEM raw commands for fan mode (`0x30 0x45`) and duty cycle (`0x30 0x70 0x66`)
+- Dark-themed web UI with Python's built-in http.server — no external dependencies
+- Fan control uses a proven 2-step transition sequence:
+  1. Force FULL mode (breaks out of any active preset)
+  2. Wait 2 seconds (BMC timing requirement)
+  3. Switch to target mode
+  4. Wait 2 seconds
+  5. Set duty cycles
+- Auto-refresh pauses during user interaction (clicking, adjusting sliders)
+- Color-coded alerts: green=OK, yellow=warning, red=critical
+- Thresholds: CPU >70°C warning, >85°C critical; fans <500 RPM warning, <200 RPM critical
 
 ## Compatible Boards
 
 Tested on Supermicro X10SRi-F and X11SSH-F. Should work with any Supermicro board that supports IPMI 2.0 LAN+.
 
-The fan duty cycle and mode commands use Supermicro OEM raw IPMI commands (0x30 0x45 / 0x30 0x70). These are standard across X9/X10/X11/X12 generations.
+The fan duty cycle and mode commands use Supermicro OEM raw IPMI commands. These are standard across X9/X10/X11/X12 generations.
 
 ## Troubleshooting
 
@@ -158,35 +166,39 @@ The fan duty cycle and mode commands use Supermicro OEM raw IPMI commands (0x30 
 - Check that IPMI is enabled in BIOS
 - Try: `ping <BMC-IP>`
 - Default Supermicro credentials: ADMIN / ADMIN (change this!)
-
-### "ipmitool not found"
-- Use the Docker image — it includes ipmitool
-- If running bare-metal: `sudo apt-get install ipmitool`
+- **Important:** `network_mode: host` is required in Docker for BMC LAN access
 
 ### Fan duty shows N/A
 - Some older BMC firmware versions may not support the raw 0x30 0x70 commands
-- Fan mode and duty display is cosmetic — temperature and fan readings still work
+- Temperature and fan readings still work regardless
+
+### Fan control not taking effect
+- The BMC needs ~6 seconds to transition between modes (handled automatically)
+- Some modes override duty cycles (e.g., Full mode runs all fans at 100%)
+- Try applying a preset first, then fine-tune with sliders
 
 ### No SEL entries
 - SEL may have been cleared, or BMC firmware may have a different SEL size
-- Try: `docker compose run --rm ipmi-dashboard -l 200` for more entries
 
 ## Security Notes
 
 - **Never expose your BMC to the internet** — IPMI is a management protocol, keep it on your LAN
 - Change the default ADMIN password on your BMC
-- This tool only reads data — it does not modify any settings
+- Fan control modifies BMC settings — use responsibly
 - Credentials are passed via environment variables, not stored in the image
+- The web UI has no authentication — run on a trusted LAN only
 
 ## Files
 
 ```
 ipmi-dashboard/
-├── Dockerfile                    # Alpine + ipmitool + bash (~15MB)
+├── Dockerfile                    # Alpine 3.19 + ipmitool + bash + python3 (~15MB)
 ├── docker-compose.yml            # Your config (git-ignored)
 ├── docker-compose.example.yml    # Template to copy
-├── ipmi-dashboard.sh             # The main script
+├── ipmi-dashboard.sh             # Terminal dashboard script
+├── web-dashboard.py              # Web UI + fan control server
 ├── .dockerignore                 # Keep image lean
+├── .gitignore                    # Keep creds out of git
 └── README.md                     # This file
 ```
 
