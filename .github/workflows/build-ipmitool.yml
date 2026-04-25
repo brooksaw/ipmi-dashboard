@@ -1,46 +1,52 @@
 name: Build ipmitool.exe
 
 on:
-  workflow_dispatch:  # Manual trigger
-  release:
-    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - name: Checkout ipmitool source
-        uses: actions/checkout@v4
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
         with:
-          repository: ipmitool/ipmitool
-          ref: IPMITOOL_1_8_19
+          msystem: MSYS
+          update: true
+          install: >-
+            git
+            autoconf
+            automake
+            libtool
+            make
+            gcc
+            gettext-devel
+            libiconv-devel
 
-      - name: Install cross-compile deps
+      - name: Clone and build ipmitool
+        shell: msys2 {0}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64 autoconf automake libtool
-
-      - name: Bootstrap
-        run: ./bootstrap
-
-      - name: Configure for Windows
-        run: |
-          ./configure             --host=x86_64-w64-mingw32             --enable-static             --disable-shared             --disable-intf-open             --disable-intf-free             --disable-intf-imb             --disable-ipmishell             CFLAGS="-O2 -static"
-
-      - name: Build
-        run: make -j$(nproc)
-
-      - name: Strip binary
-        run: x86_64-w64-mingw32-strip src/ipmitool.exe
+          git clone --depth 1 --branch IPMITOOL_1_8_19 https://github.com/ipmitool/ipmitool.git
+          cd ipmitool
+          ./bootstrap
+          ./configure --enable-static --disable-shared --disable-ipmishell
+          make -j$(nproc)
+          strip src/ipmitool.exe
+          ls -lh src/ipmitool.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ipmitool-windows
-          path: src/ipmitool.exe
+          path: ipmitool/src/ipmitool.exe
 
-      - name: Upload to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: src/ipmitool.exe
+      - name: Create/Update release with binary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          # Create a release if it doesn't exist
+          gh release create latest ipmitool/src/ipmitool.exe             --repo "$REPO"             --title "ipmitool.exe (latest build)"             --notes "Cross-compiled ipmitool.exe for Windows (built from ipmitool/ipmitool IPMITOOL_1_8_19)"             || gh release upload latest ipmitool/src/ipmitool.exe --repo "$REPO" --clobber
