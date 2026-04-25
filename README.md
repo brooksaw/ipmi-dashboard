@@ -14,7 +14,7 @@ This tool gives you two ways to do it:
 
 | Option | Best for | Requirements |
 |--------|----------|-------------|
-| **Python Script** | Windows/Mac/Linux, run once | Python 3, ipmitool auto-downloaded |
+| **Python Script** | Windows/Mac/Linux, run once | Python 3, ipmitool auto-downloaded on Windows |
 | **Docker Dashboard** | Always-on web UI with live monitoring | Docker on any host |
 
 ---
@@ -49,7 +49,7 @@ Your BMC IP is the address you use to access the Supermicro IPMI web interface. 
 python ipmi-fan-control.py
 ```
 
-On first run on Windows, it auto-downloads `ipmitool.exe` from the official source. On Linux/Mac, it expects `ipmitool` already installed (most distros: `apt install ipmitool` or `brew install ipmitool`).
+On first run on Windows, it auto-downloads `ipmitool.exe` from the [GitHub Releases](https://github.com/brooksaw/ipmi-dashboard/releases) page (cross-compiled from official source). On Linux/Mac, it auto-installs via `apt` or `brew`.
 
 ### Pick a Preset
 
