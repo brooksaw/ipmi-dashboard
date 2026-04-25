@@ -19,9 +19,14 @@ jobs:
       - name: Clone ipmitool
         run: git clone --depth 1 --branch IPMITOOL_1_8_19 https://github.com/ipmitool/ipmitool.git
 
-      - name: Create MinGW compatibility headers
+      - name: Patch source for MinGW
         working-directory: ipmitool
         run: |
+          # Create empty stubs for files that need full POSIX terminal API (SOL)
+          # We don't need SOL for fan control
+          echo "" > lib/ipmi_sol.c
+          echo "" > lib/ipmi_main.c
+
           mkdir -p compat/sys compat/netinet compat/arpa
 
           # sys/ioctl.h
