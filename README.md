@@ -102,12 +102,14 @@ cp docker-compose.example.yml docker-compose.yml
 Edit `docker-compose.yml` and fill in your BMC details:
 ```yaml
 environment:
-  - IPMI_HOST=192.168.1.100    # Your BMC/IPMI IP address
-  - IPMI_USER=ADMIN            # Your IPMI username (default: ADMIN)
-  - IPMI_PASS=your-password    # Your IPMI password
-  - WEB_PORT=8080              # Web UI port (default: 8080)
-  - WEB_REFRESH=10             # Auto-refresh interval in seconds (default: 10)
+  - IPMI_HOST=192.168.1.100    # <-- Your BMC/IPMI IP address (REQUIRED)
+  - IPMI_USER=ADMIN            # <-- Your IPMI username
+  - IPMI_PASS=your-password    # <-- Your IPMI password (REQUIRED)
+  - WEB_PORT=8080              # Web UI port
+  - WEB_REFRESH=10             # Auto-refresh interval in seconds
 ```
+
+**Important:** `IPMI_HOST` and `IPMI_PASS` must be filled in or the container will exit immediately.
 
 ### 4. Build and run
 ```bash
@@ -143,7 +145,8 @@ If you're using Portainer on your Synology or any other host:
 6. Repository URL: `https://github.com/brooksaw/ipmi-dashboard.git`
 7. Repository reference: `refs/heads/main`
 8. Compose path: `docker-compose.example.yml`
-9. Scroll down to **Environment variables** (Advanced Mode) and paste:
+9. Scroll down to **Environment variables** section
+10. Select **Advanced Mode** and paste:
 ```
 IPMI_HOST=192.168.1.100
 IPMI_USER=ADMIN
@@ -151,11 +154,16 @@ IPMI_PASS=your-password
 WEB_PORT=8080
 WEB_REFRESH=10
 ```
-10. Click **Deploy the stack**
-11. Wait ~30 seconds for the build to complete
-12. Open `http://your-host-ip:8080`
+11. **Important:** Replace the values above with your actual BMC IP, username, and password
+12. Click **Deploy the stack**
+13. Wait ~30-60 seconds for the image to build (first time only)
+14. Open `http://your-host-ip:8080`
+
+> **Blank page?** Check Stacks > ipmi-dashboard > Containers — if the container shows "Exited" or keeps restarting, the environment variables weren't injected. Make sure you used **Advanced Mode** (not Simple) and that `IPMI_HOST` has your actual BMC IP address.
 
 **To update:** Stacks > ipmi-dashboard > Pull and redeploy
+
+**To change settings later:** Stacks > ipmi-dashboard > Env vars — edit and click **Update the stack**
 
 ### Option B: Web Editor (paste compose directly)
 
@@ -166,8 +174,7 @@ WEB_REFRESH=10
 ```yaml
 services:
   ipmi-dashboard:
-    build:
-      context: https://github.com/brooksaw/ipmi-dashboard.git
+    build: https://github.com/brooksaw/ipmi-dashboard.git
     container_name: ipmi-dashboard
     network_mode: host
     restart: unless-stopped
@@ -178,7 +185,7 @@ services:
       - WEB_PORT=8080
       - WEB_REFRESH=10
 ```
-5. Replace the IP, username, and password with your BMC credentials
+5. **Replace the three values** with your actual BMC IP, username, and password
 6. Click **Deploy the stack**
 
 ### Option C: Local build (clone first via SSH)
