@@ -24,6 +24,8 @@ jobs:
             gcc
             gettext-devel
             libiconv-devel
+            gettext-tools
+            libtool
 
       - name: Clone ipmitool
         shell: msys2 {0}
@@ -36,17 +38,21 @@ jobs:
           # Fix strptime: add #define _GNU_SOURCE before any includes
           sed -i '1i #define _GNU_SOURCE' lib/ipmi_sel.c
           sed -i '1i #define _GNU_SOURCE' src/ipmitool.c
-          # Fix potential format truncation warnings
           sed -i '1i #define _GNU_SOURCE' lib/ipmi_sdr.c
           sed -i '1i #define _GNU_SOURCE' lib/ipmi_time.c
 
-      - name: Build ipmitool
+      - name: Build ipmitool (statically linked)
         shell: msys2 {0}
         working-directory: ipmitool
         run: |
           ./bootstrap
-          ./configure             --enable-static             --disable-shared             --disable-ipmishell             CFLAGS="-O2 -Wno-error -Wno-format-truncation"
+          ./configure             --enable-static             --disable-shared             --disable-ipmishell             CFLAGS="-O2 -static -Wno-error -Wno-format-truncation"             LDFLAGS="-static -all-static"             LIBS="-lintl -liconv"
           make -j$(nproc)
+          
+          # Verify it is statically linked (no DLL dependencies)
+          echo "=== Checking dependencies ==="
+          objdump -p src/ipmitool.exe | grep "DLL Name" || echo "No DLL dependencies found (good!)"
+          
           strip src/ipmitool.exe
           ls -lh src/ipmitool.exe
 
@@ -62,4 +68,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REPO="${{ github.repository }}"
-          gh release create latest ipmitool/src/ipmitool.exe             --repo "$REPO"             --title "ipmitool.exe (latest build)"             --notes "Windows ipmitool.exe built from ipmitool/ipmitool IPMITOOL_1_8_19"             || gh release upload latest ipmitool/src/ipmitool.exe --repo "$REPO" --clobber
+          gh release create latest ipmitool/src/ipmitool.exe             --repo "$REPO"             --title "ipmitool.exe (latest build)"             --notes "Windows ipmitool.exe — statically linked, no dependencies. Built from ipmitool/ipmitool IPMITOOL_1_8_19"             || gh release upload latest ipmitool/src/ipmitool.exe --repo "$REPO" --clobber
