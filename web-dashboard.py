@@ -8,6 +8,7 @@ import html
 import http.server
 import json
 import os
+import socketserver
 import subprocess
 import time
 import urllib.parse
@@ -860,7 +861,11 @@ if __name__ == "__main__":
             BMC_CONNECTED = True
             print(f"Connected to BMC at {IPMI_HOST}. Serving at http://0.0.0.0:{PORT}")
 
-    server = http.server.HTTPServer(("0.0.0.0", PORT), DashboardHandler)
+    class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+        """Handle each request in a separate thread."""
+        daemon_threads = True
+
+    server = ThreadedHTTPServer(("0.0.0.0", PORT), DashboardHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
