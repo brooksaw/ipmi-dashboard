@@ -38,7 +38,7 @@ jobs:
       - name: Build ipmitool
         working-directory: ipmitool
         run: |
-          export CFLAGS="-O2 -Wno-error -Wno-format-truncation"
+          export CFLAGS="-O2 -Wno-error -Wno-format-truncation -D_GNU_SOURCE"
           export LDFLAGS="-static-libgcc -static-libstdc++"
           ./bootstrap || true
           ./configure --enable-static --disable-shared --disable-intf-free --disable-intf-usb --disable-ipmishell
