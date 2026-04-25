@@ -128,6 +128,78 @@ If you prefer the Synology GUI:
 5. Edit the environment variables in the compose file
 6. Click **Build and Start**
 
+
+## Portainer
+
+If you're using Portainer on your Synology or any other host:
+
+### Option A: Git Stack (recommended — auto-updates from repo)
+
+1. Open **Portainer** in your browser
+2. Go to **Local** (or your environment) > **Stacks**
+3. Click **Add stack**
+4. Name it: `ipmi-dashboard`
+5. Build method: select **Repository**
+6. Repository URL: `https://github.com/brooksaw/ipmi-dashboard.git`
+7. Repository reference: `refs/heads/main`
+8. Compose path: `docker-compose.example.yml`
+9. Scroll down to **Environment variables** (Advanced Mode) and paste:
+```
+IPMI_HOST=192.168.1.100
+IPMI_USER=ADMIN
+IPMI_PASS=your-password
+WEB_PORT=8080
+WEB_REFRESH=10
+```
+10. Click **Deploy the stack**
+11. Wait ~30 seconds for the build to complete
+12. Open `http://your-host-ip:8080`
+
+**To update:** Stacks > ipmi-dashboard > Pull and redeploy
+
+### Option B: Web Editor (paste compose directly)
+
+1. Open **Portainer** > **Stacks** > **Add stack**
+2. Name it: `ipmi-dashboard`
+3. Build method: select **Web editor**
+4. Paste this into the editor:
+```yaml
+services:
+  ipmi-dashboard:
+    build:
+      context: https://github.com/brooksaw/ipmi-dashboard.git
+    container_name: ipmi-dashboard
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - IPMI_HOST=192.168.1.100
+      - IPMI_USER=ADMIN
+      - IPMI_PASS=your-password
+      - WEB_PORT=8080
+      - WEB_REFRESH=10
+```
+5. Replace the IP, username, and password with your BMC credentials
+6. Click **Deploy the stack**
+
+### Option C: Local build (clone first via SSH)
+
+If Portainer can't build from git directly:
+
+```bash
+# SSH into your Synology/host first
+cd /volume1/docker
+git clone https://github.com/brooksaw/ipmi-dashboard.git
+```
+
+Then in Portainer:
+1. **Stacks** > **Add stack**
+2. Name: `ipmi-dashboard`
+3. Build method: **Upload**
+4. Upload the `docker-compose.example.yml` from the cloned repo
+5. Or use **Repository** with local path
+6. Set environment variables as above
+7. Deploy
+
 ## Environment Variables
 
 | Variable | Default | Description |
