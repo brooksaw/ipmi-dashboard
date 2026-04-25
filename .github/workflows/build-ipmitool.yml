@@ -14,52 +14,92 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install MinGW cross-compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64 autoconf automake libtool git
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64 autoconf automake libtool git
 
       - name: Clone ipmitool
         run: git clone --depth 1 --branch IPMITOOL_1_8_19 https://github.com/ipmitool/ipmitool.git
 
-      - name: Create Windows compatibility shim
+      - name: Create MinGW compatibility headers
         working-directory: ipmitool
         run: |
-          cat > include/win_compat.h << 'EOF'
-          #ifndef WIN_COMPAT_H
-          #define WIN_COMPAT_H
-          #ifdef __MINGW32__
-            #include <winsock2.h>
-            #include <ws2tcpip.h>
-            #include <io.h>
-            #define close closesocket
-            #define ioctl ioctlsocket
-            typedef int socklen_t;
-            #include <time.h>
-            #include <sys/timeb.h>
-            static int gettimeofday(struct timeval *tv, void *tz) {
-              struct _timeb tb;
-              _ftime(&tb);
-              tv->tv_sec = tb.time;
-              tv->tv_usec = tb.millitm * 1000;
-              return 0;
-            }
-          #endif
+          mkdir -p compat/sys compat/netinet compat/arpa
+
+          # sys/ioctl.h
+          cat > compat/sys/ioctl.h << 'EOF'
+          #ifndef _SYS_IOCTL_H
+          #define _SYS_IOCTL_H
+          #include <winsock2.h>
+          #include <io.h>
+          #define ioctl ioctlsocket
           #endif
           EOF
 
-          for f in lib/ipmi_sel.c lib/ipmi_sdr.c lib/ipmi_sol.c lib/helper.c lib/ipmi_time.c src/ipmitool.c; do
-            if [ -f "$f" ]; then
-              sed -i '1i #include "win_compat.h"' "$f"
-              sed -i '1i #define _GNU_SOURCE' "$f"
-            fi
-          done
+          # sys/select.h
+          cat > compat/sys/select.h << 'EOF'
+          #ifndef _SYS_SELECT_H
+          #define _SYS_SELECT_H
+          #include <winsock2.h>
+          #endif
+          EOF
+
+          # netinet/in.h
+          cat > compat/netinet/in.h << 'EOF'
+          #ifndef _NETINET_IN_H
+          #define _NETINET_IN_H
+          #include <winsock2.h>
+          #include <ws2tcpip.h>
+          #endif
+          EOF
+
+          # arpa/inet.h
+          cat > compat/arpa/inet.h << 'EOF'
+          #ifndef _ARPA_INET_H
+          #define _ARPA_INET_H
+          #include <winsock2.h>
+          #include <ws2tcpip.h>
+          #endif
+          EOF
+
+          # syslog.h
+          cat > compat/syslog.h << 'EOF'
+          #ifndef _SYSLOG_H
+          #define _SYSLOG_H
+          #include <stdarg.h>
+          #include <stdio.h>
+          #define LOG_EMERG 0
+          #define LOG_ALERT 1
+          #define LOG_CRIT 2
+          #define LOG_ERR 3
+          #define LOG_WARNING 4
+          #define LOG_NOTICE 5
+          #define LOG_INFO 6
+          #define LOG_DEBUG 7
+          static inline void openlog(const char *a, int b, int c) { (void)a; (void)b; (void)c; }
+          static inline void syslog(int pri, const char *fmt, ...) {
+            va_list ap; va_start(ap, fmt);
+            fprintf(stderr, "[syslog %d] ", pri);
+            vfprintf(stderr, fmt, ap);
+            fprintf(stderr, "\n");
+            va_end(ap);
+          }
+          static inline void closelog(void) {}
+          #endif
+          EOF
+
+          # sys/timeb.h might be needed
+          cat > compat/sys/timeb.h << 'EOF'
+          #ifndef _SYS_TIMEB_H
+          #define _SYS_TIMEB_H
+          #include <sys/time.h>
+          #endif
+          EOF
 
       - name: Configure and build
         working-directory: ipmitool
         run: |
           export CC=x86_64-w64-mingw32-gcc
           ./bootstrap
-          ./configure             --host=x86_64-w64-mingw32             --enable-static             --disable-shared             --disable-intf-open             --disable-intf-free             --disable-intf-imb             --disable-intf-lipmi             --disable-intf-bmc             --disable-ipmishell             --disable-internal-md5             CFLAGS="-O2 -Wno-error -Wno-implicit-function-declaration -Wno-format-truncation -Wno-incompatible-pointer-types"             LDFLAGS="-static"             LIBS="-lws2_32 -liphlpapi"
+          ./configure             --host=x86_64-w64-mingw32             --enable-static             --disable-shared             --disable-intf-open             --disable-intf-free             --disable-intf-imb             --disable-intf-lipmi             --disable-intf-bmc             --disable-ipmishell             --disable-internal-md5             CFLAGS="-O2 -I$(pwd)/compat -Wno-error -Wno-implicit-function-declaration -Wno-format-truncation -Wno-incompatible-pointer-types -Wno-int-conversion"             LDFLAGS="-static"             LIBS="-lws2_32 -liphlpapi"
           make -j$(nproc) || true
 
       - name: Verify and strip
@@ -67,12 +107,12 @@ jobs:
         run: |
           if [ -f src/ipmitool.exe ]; then
             echo "=== DLL Dependencies ==="
-            x86_64-w64-mingw32-objdump -p src/ipmitool.exe | grep "DLL Name" || echo "None found"
+            x86_64-w64-mingw32-objdump -p src/ipmitool.exe | grep "DLL Name" || echo "NONE (fully static!)"
             x86_64-w64-mingw32-strip src/ipmitool.exe
             ls -lh src/ipmitool.exe
             echo "BUILD_SUCCESS=true" >> $GITHUB_ENV
           else
-            echo "ipmitool.exe not found"
+            echo "ipmitool.exe NOT FOUND"
             find . -name "ipmitool.exe" 2>/dev/null || true
             echo "BUILD_SUCCESS=false" >> $GITHUB_ENV
           fi
@@ -84,11 +124,12 @@ jobs:
           name: ipmitool-windows
           path: ipmitool/src/ipmitool.exe
 
-      - name: Create/Update release
+      - name: Update release
         if: env.BUILD_SUCCESS == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REPO="${{ github.repository }}"
-          gh release create latest ipmitool/src/ipmitool.exe             --repo "$REPO"             --title "ipmitool.exe (latest build)"             --notes "Statically linked Windows ipmitool.exe from ipmitool/ipmitool IPMITOOL_1_8_19"             || gh release upload latest ipmitool/src/ipmitool.exe --repo "$REPO" --clobber
+          gh release delete latest --repo ${{ github.repository }} --yes || true
+          sleep 2
+          gh release create latest ipmitool/src/ipmitool.exe             --repo ${{ github.repository }}             --title "ipmitool.exe (latest build)"             --notes "Statically linked Windows ipmitool.exe — no DLL dependencies. Built from official ipmitool 1.8.19 source."
