@@ -2,7 +2,7 @@
      2|"""
      3|Supermicro IPMI Fan Control — Stop the churning.
      4|Works on Windows, Mac, Linux.
-     5|Uses ipmitool (auto-downloaded on Windows, auto-installed on Linux/Mac).
+     5|Uses ipmitool via subprocess (auto-downloaded on Windows, pre-installed on Linux/Mac).
      6|
      7|Usage:
      8|  1. Edit the CONFIG section below with your BMC details
@@ -10,7 +10,7 @@
     10|  3. Pick a preset
     11|  4. Done — fans stay fixed until you change them
     12|
-    13|Requirements: Python 3.6+ (ipmitool auto-installed)
+    13|Requirements: Python 3.6+ (ipmitool auto-downloaded)
     14|"""
     15|
     16|# ============================================================
@@ -31,9 +31,9 @@
     31|import zipfile
     32|
     33|PRESETS = {
-    34|    "q": ("Quiet",   "00", 40, 30),
-    35|    "n": ("Normal",  "00", 50, 40),
-    36|    "c": ("Cool",    "00", 70, 60),
+    "q": ("Quiet",   "01", 40, 30),
+    "n": ("Normal",  "01", 50, 40),
+    "c": ("Cool",    "01", 70, 60),
     37|    "f": ("Full",    "02", None, None),
     38|    "r": ("Reset",   "01", None, None),
     39|}

@@ -14,7 +14,7 @@ This tool gives you two ways to do it:
 
 | Option | Best for | Requirements |
 |--------|----------|-------------|
-| **Python Script** | Windows/Mac/Linux, run once | Python 3, auto-installs deps |
+| **Python Script** | Windows/Mac/Linux, run once | Python 3, ipmitool auto-downloaded |
 | **Docker Dashboard** | Always-on web UI with live monitoring | Docker on any host |
 
 ---
@@ -49,17 +49,17 @@ Your BMC IP is the address you use to access the Supermicro IPMI web interface. 
 python ipmi-fan-control.py
 ```
 
-On first run it auto-installs `pyghmi` (a pure Python IPMI library — no ipmitool needed).
+On first run on Windows, it auto-downloads `ipmitool.exe` from the official source. On Linux/Mac, it expects `ipmitool` already installed (most distros: `apt install ipmitool` or `brew install ipmitool`).
 
 ### Pick a Preset
 
 ```
   QUICK PRESETS:
-    [q] Quiet    — Standard, 40%/30% (stops churning)
-    [n] Normal   — Standard, 50%/40% (balanced)
-    [c] Cool     — Standard, 70%/60% (more airflow)
+    [q] Quiet    — Standard, 40%/30% duty (stops churning)
+    [n] Normal   — Standard, 50%/40% duty (balanced)
+    [c] Cool     — Standard, 70%/60% duty (more airflow)
     [f] Full     — 100% all fans (max cooling)
-    [r] Reset    — Standard mode (BMC auto, factory default)
+    [r] Reset    — Standard mode, BMC auto-manages
 ```
 
 Press **q** or **n** — that's it. Churning stops immediately.
