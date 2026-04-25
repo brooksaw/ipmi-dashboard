@@ -22,10 +22,11 @@ jobs:
       - name: Patch source for MinGW
         working-directory: ipmitool
         run: |
-          # Create empty stubs for files that need full POSIX terminal API (SOL)
-          # We don't need SOL for fan control
+          # Stub out files that need full POSIX/SOL/syslog API
+          # We only need: sdr, sel, sensor, raw, mc, fru, chassis, lan
           echo "" > lib/ipmi_sol.c
           echo "" > lib/ipmi_main.c
+          echo "" > lib/log.c
 
           mkdir -p compat/sys compat/netinet compat/arpa
 
