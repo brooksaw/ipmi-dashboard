@@ -221,9 +221,15 @@ Should work with any Supermicro board that supports IPMI 2.0.
 - Make sure environment variables are actually set (check Portainer Advanced Mode)
 - Check nothing else is using port 8080 (change `WEB_PORT`)
 
+### Python script: "Download failed: binary not available yet"
+- The GitHub Actions build needs to run first — go to the [Actions tab](https://github.com/brooksaw/ipmi-dashboard/actions) and trigger "Build ipmitool.exe" manually
+- Or download `ipmitool.exe` from the [Releases page](https://github.com/brooksaw/ipmi-dashboard/releases) and place it next to the script
+
 ### Python script won't connect
-- `pyghmi` is auto-installed on first run — needs internet
-- If behind a proxy: `pip install pyghmi` manually first
+- `ipmitool.exe` is auto-downloaded from GitHub Releases on first run
+- If behind a proxy/firewall: download `ipmitool.exe` manually from [Releases](https://github.com/brooksaw/ipmi-dashboard/releases) and place next to the script
+- Or install via Chocolatey: `choco install ipmitool`
+- Or install via WSL: `sudo apt install ipmitool`
 - Check Windows Firewall isn't blocking outbound UDP 623 (RMCP port)
 
 ## Security
