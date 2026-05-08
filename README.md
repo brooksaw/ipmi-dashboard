@@ -113,6 +113,55 @@ All env vars live in `.env`. The example file documents every option.
 
 ---
 
+## Notifications
+
+Set `NOTIFY_WEBHOOK_URL` in `.env` to get pushed when something interesting happens. Works with any webhook-accepting service.
+
+```bash
+# Discord
+NOTIFY_WEBHOOK_URL=https://discord.com/api/webhooks/xxx/yyy
+NOTIFY_WEBHOOK_FORMAT=discord
+
+# Slack
+NOTIFY_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
+NOTIFY_WEBHOOK_FORMAT=slack
+
+# ntfy.sh (free push to phone)
+NOTIFY_WEBHOOK_URL=https://ntfy.sh/your-topic
+NOTIFY_WEBHOOK_FORMAT=ntfy
+
+# Anything else (custom endpoint, n8n, Home Assistant)
+NOTIFY_WEBHOOK_URL=https://your-host/hook
+NOTIFY_WEBHOOK_FORMAT=generic   # default JSON shape
+```
+
+Events fired:
+
+| Event | When |
+|-------|------|
+| `alert.opened` | Sensor breached `CPU_WARN_C` / `CPU_CRIT_C` / `INLET_WARN_C` / `FAN_MIN_RPM` |
+| `alert.updated` | Existing alert escalated (`warn` → `crit`) or de-escalated |
+| `alert.cleared` | Sensor returned to normal |
+| `power.action` | Manual power command (`on`/`off`/`cycle`/`reset`) succeeded |
+| `power.failed` | Power command failed |
+
+Generic JSON body:
+```json
+{
+  "event": "alert.opened",
+  "server": "rack-a",
+  "sensor": "CPU Temp",
+  "level": "crit",
+  "value": 92.0,
+  "message": "[rack-a] CPU Temp = 92.0 (CRIT) — alert.opened",
+  "timestamp": "2026-05-08T18:55:12.345678+00:00"
+}
+```
+
+Webhook delivery is best-effort and never blocks the dashboard — failures are logged at WARNING.
+
+---
+
 ## API reference
 
 All endpoints return JSON. Errors as `{"error": "..."}`.

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .config import ALERT_THRESHOLDS
 from .models import Alert, SensorReading
+from .notifications import send_event
 
 log = logging.getLogger(__name__)
 
@@ -79,17 +80,21 @@ def evaluate_alerts(server: str, readings: list[dict], session: Session) -> None
             )
             session.add(alert)
             log.warning("Alert OPENED: %s %s %s=%.1f", server, level.upper(), sensor_name, value)
+            send_event("alert.opened", server=server, sensor=sensor_name, level=level, value=value)
         elif existing.level != level:
             # Upgrade/downgrade in place (update level and value)
+            old_level = existing.level
             existing.level = level
             existing.value = value
-            log.warning("Alert UPDATED: %s %s %s=%.1f", server, level.upper(), sensor_name, value)
+            log.warning("Alert UPDATED: %s %s -> %s %s=%.1f", server, old_level.upper(), level.upper(), sensor_name, value)
+            send_event("alert.updated", server=server, sensor=sensor_name, level=level, value=value)
 
     # Clear alerts no longer in breach
     for sensor_name, alert in open_by_sensor.items():
         if sensor_name not in breaches:
             alert.cleared_at = now
             log.info("Alert CLEARED: %s %s", server, sensor_name)
+            send_event("alert.cleared", server=server, sensor=sensor_name, level="info", value=alert.value)
 
     session.commit()
 

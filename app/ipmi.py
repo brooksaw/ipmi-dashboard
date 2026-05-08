@@ -182,29 +182,38 @@ def set_power(server_cfg: dict, action: str) -> None:
 def set_fan_zone(server_cfg: dict, zone: int, duty: int) -> None:
     """Set fan zone duty cycle.
 
-    Supports both X11 and X10 board generations.
+    Try the X11-style raw command first (works on X11 + most X10 variants like
+    X10SRi/X10SRL). Fall back to legacy X10 command if X11-style fails. The
+    server_cfg "board" hint is honored as a starting point — set "X10_legacy"
+    to skip the X11 attempt for known-old boards.
 
-    X11: ipmitool raw 0x30 0x70 0x66 0x01 <zone> <duty_hex>
-    X10: ipmitool raw 0x30 0x91 0x5A 0x03 0x10 <duty_hex>
-         (X10 only has one zone; zone arg is accepted but ignored for zone 1)
+    X11-style: ipmitool raw 0x30 0x70 0x66 0x01 <zone> <duty_hex>
+    X10 legacy: ipmitool raw 0x30 0x91 0x5A 0x03 0x10 <duty_hex>
+                (single zone, zone arg ignored at the BMC)
     """
     duty = max(0, min(100, int(duty)))
     duty_hex = hex(duty)
     board = server_cfg.get("board", "X11").upper()
     host, user, password = _server_args(server_cfg)
+    name = server_cfg.get("name", host)
 
-    if board == "X11":
-        zone_byte = hex(int(zone))
-        args = ["raw", "0x30", "0x70", "0x66", "0x01", zone_byte, duty_hex]
-    else:
-        # X10 — single zone command; zone arg is cosmetic here
-        args = ["raw", "0x30", "0x91", "0x5A", "0x03", "0x10", duty_hex]
+    x11_args = ["raw", "0x30", "0x70", "0x66", "0x01", hex(int(zone)), duty_hex]
+    x10_args = ["raw", "0x30", "0x91", "0x5A", "0x03", "0x10", duty_hex]
 
-    _run(host, user, password, args)
-    log.info(
-        "Fan zone %d duty set to %d%% on %s (%s board)",
-        zone, duty, server_cfg.get("name"), board,
-    )
+    # Boards explicitly tagged X10_LEGACY (very old X9/X10) skip straight to legacy cmd
+    if board in ("X10_LEGACY", "X9"):
+        _run(host, user, password, x10_args)
+        log.info("Fan zone %d duty set to %d%% on %s (legacy X10 cmd)", zone, duty, name)
+        return
+
+    # Default path: try X11-style first, fall back to legacy on failure
+    try:
+        _run(host, user, password, x11_args)
+        log.info("Fan zone %d duty set to %d%% on %s (X11 cmd)", zone, duty, name)
+    except RuntimeError as exc:
+        log.warning("X11 fan cmd failed on %s, trying legacy X10: %s", name, exc)
+        _run(host, user, password, x10_args)
+        log.info("Fan zone %d duty set to %d%% on %s (legacy X10 cmd, fallback)", zone, duty, name)
 
 
 def get_sel_events(server_cfg: dict, count: int = 50) -> list[dict]:
