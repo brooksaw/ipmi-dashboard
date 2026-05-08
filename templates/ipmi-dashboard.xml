@@ -13,7 +13,7 @@
   <Category>Tools: Status: Network:Management</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/templates/ipmi-dashboard.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/static/img/supermicro.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/static/img/icon.png</Icon>
   <Changes>### v2.0.2
 - Unraid managed-app template (no more 3rd Party badge)
 - Multi-arch image (amd64+arm64) auto-published to GHCR
