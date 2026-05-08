@@ -99,6 +99,82 @@ def evaluate_alerts(server: str, readings: list[dict], session: Session) -> None
     session.commit()
 
 
+def evaluate_disk_alerts(disks: list[dict], session: Session) -> None:
+    """Open/clear alerts for each monitored disk based on temp, capacity, and SMART health.
+
+    Uses sensor "server" namespace = "_disks" so disks share the same Alert
+    table as IPMI sensors but stay segregated from any per-server alerts.
+    """
+    if not disks:
+        return
+
+    DISK_SERVER = "_disks"
+    breaches: dict[str, tuple[str, float]] = {}
+
+    temp_t = ALERT_THRESHOLDS["disk_temp"]
+    cap_t = ALERT_THRESHOLDS["disk_capacity"]
+
+    for d in disks:
+        name = d["disk_name"]
+        temp = d.get("temp", 0)
+        cap = d.get("capacity_pct", 0)
+        health = (d.get("health") or "UNKNOWN").upper()
+
+        # SMART failure trumps everything
+        if health == "FAIL":
+            breaches[f"{name}::smart"] = ("crit", 0)
+        elif health == "WARN":
+            breaches[f"{name}::smart"] = ("warn", 0)
+
+        # Temperature
+        if temp_t.get("crit") is not None and temp >= temp_t["crit"]:
+            breaches[f"{name}::temp"] = ("crit", temp)
+        elif temp_t.get("warn") is not None and temp >= temp_t["warn"]:
+            breaches[f"{name}::temp"] = ("warn", temp)
+
+        # Capacity (only if reported)
+        if cap > 0:
+            if cap_t.get("crit") is not None and cap >= cap_t["crit"]:
+                breaches[f"{name}::capacity"] = ("crit", cap)
+            elif cap_t.get("warn") is not None and cap >= cap_t["warn"]:
+                breaches[f"{name}::capacity"] = ("warn", cap)
+
+    open_alerts: list[Alert] = (
+        session.query(Alert)
+        .filter(Alert.server == DISK_SERVER, Alert.cleared_at.is_(None))
+        .all()
+    )
+    open_by_sensor: dict[str, Alert] = {a.sensor_name: a for a in open_alerts}
+
+    now = datetime.now(timezone.utc)
+
+    for sensor_name, (level, value) in breaches.items():
+        existing = open_by_sensor.get(sensor_name)
+        if existing is None:
+            session.add(Alert(
+                server=DISK_SERVER,
+                sensor_name=sensor_name,
+                level=level,
+                value=value,
+                fired_at=now,
+            ))
+            log.warning("Disk alert OPENED: %s %s=%.1f", level.upper(), sensor_name, value)
+            send_event("alert.opened", server=DISK_SERVER, sensor=sensor_name, level=level, value=value)
+        elif existing.level != level:
+            existing.level = level
+            existing.value = value
+            log.warning("Disk alert UPDATED: %s %s=%.1f", level.upper(), sensor_name, value)
+            send_event("alert.updated", server=DISK_SERVER, sensor=sensor_name, level=level, value=value)
+
+    for sensor_name, alert in open_by_sensor.items():
+        if sensor_name not in breaches:
+            alert.cleared_at = now
+            log.info("Disk alert CLEARED: %s", sensor_name)
+            send_event("alert.cleared", server=DISK_SERVER, sensor=sensor_name, level="info", value=alert.value)
+
+    session.commit()
+
+
 def get_active_alerts(session: Session) -> list[dict]:
     """Return all uncleared alerts as a list of dicts."""
     alerts = (

@@ -113,6 +113,25 @@
   </div>
 {% endfor %}
 
+{% if disks_enabled %}
+  <section class="storage-section" id="storage-section">
+    <div class="server-card">
+      <div class="server-header">
+        <div>
+          <span class="server-name">Storage</span>
+          <span class="server-host">Disk health</span>
+        </div>
+        <span class="storage-as-of" id="storage-as-of"></span>
+      </div>
+      <div class="card-section">
+        <div class="disk-grid" id="disk-grid">
+          <span style="color:var(--muted);font-size:12px">Loading…</span>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endif %}
+
 </main>
 
 <footer>

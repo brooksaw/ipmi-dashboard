@@ -78,6 +78,14 @@ ALERT_THRESHOLDS = {
     "fan": {
         "min": float(os.environ.get("FAN_MIN_RPM", "500")),
     },
+    "disk_temp": {
+        "warn": float(os.environ.get("DISK_WARN_C", "40")),
+        "crit": float(os.environ.get("DISK_CRIT_C", "50")),
+    },
+    "disk_capacity": {
+        "warn": float(os.environ.get("DISK_CAPACITY_WARN_PCT", "85")),
+        "crit": float(os.environ.get("DISK_CAPACITY_CRIT_PCT", "95")),
+    },
 }
 
 FAN_PRESETS = {

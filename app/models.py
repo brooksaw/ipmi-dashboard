@@ -56,6 +56,24 @@ class PowerEvent(Base):
     success: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class DiskReading(Base):
+    __tablename__ = "disk_reading"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    disk_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    disk_type: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    temp: Mapped[float] = mapped_column(Float, nullable=False)
+    capacity_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    health: Mapped[str] = mapped_column(String(16), nullable=False, default="UNKNOWN")
+    spun_up: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+
 class FanControlLog(Base):
     __tablename__ = "fan_control_log"
 

@@ -437,6 +437,128 @@ details[open] summary::before { content: "▼ "; }
   font-weight: 400;
 }
 
+/* ===== Storage section (optional disk monitoring) ===== */
+.storage-section {
+  grid-column: 1 / -1;
+}
+
+.storage-as-of {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.disk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.disk-tile {
+  position: relative;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ok);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 78px;
+}
+
+.disk-tile.warn { border-left-color: var(--warn); background: #fffbf0; }
+.disk-tile.crit { border-left-color: var(--crit); background: #fff0f0; }
+
+.disk-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.disk-name {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.disk-type-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--border);
+  color: var(--muted);
+  font-weight: 600;
+  flex: none;
+}
+
+.disk-type-badge.parity { background: #fbe0dc; color: #8d1818; }
+.disk-type-badge.cache  { background: #dde9fb; color: #134687; }
+.disk-type-badge.pool   { background: #dcf2e1; color: #1a5f2c; }
+.disk-type-badge.flash  { background: #f0e3ff; color: #6e3aa8; }
+
+.disk-temp {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.disk-temp .unit {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.disk-spundown {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.disk-cap-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.disk-cap-bar .fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width .3s;
+}
+
+.disk-cap-bar .fill.warn { background: var(--warn); }
+.disk-cap-bar .fill.crit { background: var(--crit); }
+
+.disk-cap-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.disk-health-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.disk-health-dot.ok   { background: var(--ok); }
+.disk-health-dot.warn { background: var(--warn); }
+.disk-health-dot.crit { background: var(--crit); }
+
 /* ===== Fan adjustments log table ===== */
 .fan-log-section { font-size: 11px; }
 

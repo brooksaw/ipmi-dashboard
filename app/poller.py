@@ -7,11 +7,12 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 
-from .alerts import evaluate_alerts
+from .alerts import evaluate_alerts, evaluate_disk_alerts
 from .config import HISTORY_RETENTION_DAYS, POLL_INTERVAL, SERVERS
+from .disks import ENABLED as DISKS_ENABLED, get_disks
 from .fan_control import apply_fan_control, is_auto_mode
 from .ipmi import get_sensor_data
-from .models import Base, FanControlLog, SensorReading
+from .models import Base, DiskReading, FanControlLog, SensorReading
 
 log = logging.getLogger(__name__)
 
@@ -85,10 +86,32 @@ def _poll_once(db_url: str) -> None:
                 prev_duty=fl["prev_duty"],
             ))
 
+        # ---- Disk monitoring (optional plugin) ------------------------------
+        if DISKS_ENABLED:
+            try:
+                disks = get_disks()
+                for d in disks:
+                    session.add(DiskReading(
+                        disk_name=d["disk_name"],
+                        disk_type=d["disk_type"],
+                        temp=d["temp"],
+                        capacity_pct=d["capacity_pct"],
+                        health=d["health"],
+                        spun_up=d.get("spun_up"),
+                        timestamp=now,
+                    ))
+                if disks:
+                    try:
+                        evaluate_disk_alerts(disks, session)
+                    except Exception as exc:
+                        log.error("Disk alert evaluation failed: %s", exc)
+            except Exception as exc:
+                log.error("Disk poll failed: %s", exc)
+
         session.commit()
 
         cutoff = now - timedelta(days=HISTORY_RETENTION_DAYS)
-        for Model in (SensorReading, FanControlLog):
+        for Model in (SensorReading, FanControlLog, DiskReading):
             try:
                 session.execute(delete(Model).where(Model.timestamp < cutoff))
             except Exception:

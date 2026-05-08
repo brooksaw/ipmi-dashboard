@@ -36,6 +36,7 @@
   <Requires/>
   <Config Name="WebUI Port" Target="8080" Default="8082" Mode="tcp" Description="Port the web UI listens on" Type="Port" Display="always" Required="true" Mask="false">8082</Config>
   <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/ipmi-dashboard/data" Mode="rw" Description="SQLite history + fan state file" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/ipmi-dashboard/data</Config>
+  <Config Name="Unraid disks.ini (optional)" Target="/host/disks.ini" Default="/var/local/emhttp/disks.ini" Mode="ro" Description="Mount Unraid's live disk-state file to enable disk monitoring (set DISKS_ENABLED=1 below). Leave default; works on any Unraid host." Type="Path" Display="advanced" Required="false" Mask="false">/var/local/emhttp/disks.ini</Config>
   <Config Name="IPMI_HOST" Target="IPMI_HOST" Default="" Mode="" Description="BMC IP address (single-server mode)" Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="IPMI_USER" Target="IPMI_USER" Default="ADMIN" Mode="" Description="IPMI username" Type="Variable" Display="always" Required="true" Mask="false">ADMIN</Config>
   <Config Name="IPMI_PASS" Target="IPMI_PASS" Default="" Mode="" Description="IPMI password" Type="Variable" Display="always" Required="true" Mask="true"/>
@@ -49,6 +50,10 @@
   <Config Name="CPU_CRIT_C" Target="CPU_CRIT_C" Default="90" Mode="" Description="CPU temp critical threshold (C)" Type="Variable" Display="advanced" Required="false" Mask="false">90</Config>
   <Config Name="INLET_WARN_C" Target="INLET_WARN_C" Default="45" Mode="" Description="Inlet temp warning threshold (C)" Type="Variable" Display="advanced" Required="false" Mask="false">45</Config>
   <Config Name="FAN_MIN_RPM" Target="FAN_MIN_RPM" Default="500" Mode="" Description="Fan stall threshold (RPM)" Type="Variable" Display="advanced" Required="false" Mask="false">500</Config>
+  <Config Name="DISKS_ENABLED" Target="DISKS_ENABLED" Default="0" Mode="" Description="Enable disk monitoring (Unraid). Set to 1 to turn on; uses the disks.ini path mount above." Type="Variable" Display="advanced" Required="false" Mask="false">0</Config>
+  <Config Name="DISKS_SOURCE" Target="DISKS_SOURCE" Default="local" Mode="" Description="Disk source: local (read mounted disks.ini) or ssh (cat from a remote Unraid host)" Type="Variable" Display="advanced" Required="false" Mask="false">local</Config>
+  <Config Name="DISK_WARN_C" Target="DISK_WARN_C" Default="40" Mode="" Description="Disk temp warning threshold (degrees C)" Type="Variable" Display="advanced" Required="false" Mask="false">40</Config>
+  <Config Name="DISK_CRIT_C" Target="DISK_CRIT_C" Default="50" Mode="" Description="Disk temp critical threshold (degrees C)" Type="Variable" Display="advanced" Required="false" Mask="false">50</Config>
   <Config Name="NOTIFY_WEBHOOK_URL" Target="NOTIFY_WEBHOOK_URL" Default="" Mode="" Description="Optional webhook URL for alert notifications (Discord/Slack/ntfy/custom)" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="NOTIFY_WEBHOOK_FORMAT" Target="NOTIFY_WEBHOOK_FORMAT" Default="generic" Mode="" Description="Webhook format: generic | discord | slack | ntfy" Type="Variable" Display="advanced" Required="false" Mask="false">generic</Config>
 </Container>

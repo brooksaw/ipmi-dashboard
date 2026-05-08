@@ -148,6 +148,69 @@ All env vars live in `.env`. The example file documents every option.
 
 ---
 
+## Disk monitoring (optional, Unraid)
+
+Set `DISKS_ENABLED=1` and the dashboard polls disk health in addition to BMC sensors. A "Storage" card appears below your servers showing per-disk temp, capacity, type (Data / Cache / Parity / Pool), spin state, and SMART health (PASS / WARN / FAIL).
+
+### Source mode A — local file mount (recommended for Unraid hosts running this dashboard)
+
+```bash
+# .env
+DISKS_ENABLED=1
+DISKS_SOURCE=local
+DISKS_LOCAL_PATH=/host/disks.ini
+```
+
+Mount Unraid's live disk-state file into the container in your `compose.yaml` or Unraid Docker template:
+
+```yaml
+volumes:
+  - /var/local/emhttp/disks.ini:/host/disks.ini:ro
+```
+
+Zero credentials, zero SSH, no privileged mode required. Works for the Unraid box hosting the dashboard.
+
+### Source mode B — remote Unraid host via SSH
+
+```bash
+# .env
+DISKS_ENABLED=1
+DISKS_SOURCE=ssh
+DISKS_SSH_HOST=10.0.0.5
+DISKS_SSH_USER=root
+DISKS_SSH_KEY=/ssh_key
+```
+
+Mount your SSH key:
+```yaml
+volumes:
+  - /path/to/your/ssh-key:/ssh_key:ro
+```
+
+The remote Unraid host's `~root/.ssh/authorized_keys` must contain the matching public key.
+
+### Alert thresholds
+
+| Var | Default | Meaning |
+|---|---|---|
+| `DISK_WARN_C` | `40` | Per-disk temp warning |
+| `DISK_CRIT_C` | `50` | Per-disk temp critical |
+| `DISK_CAPACITY_WARN_PCT` | `85` | Per-disk capacity used % warning |
+| `DISK_CAPACITY_CRIT_PCT` | `95` | Per-disk capacity used % critical |
+
+Webhook events `alert.opened` / `alert.cleared` fire under `server: "_disks"` with sensor name like `parity::temp` or `cache::smart`.
+
+### API
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/disks` | Latest reading per disk |
+| GET | `/api/disks/history/<disk_name>?hours=N` | Time-series temp + capacity for one disk |
+
+When `DISKS_ENABLED` is unset/0, both endpoints return `{"enabled": false, "disks": []}`.
+
+---
+
 ## Notifications
 
 Set `NOTIFY_WEBHOOK_URL` in `.env` to get pushed when something interesting happens. Works with any webhook-accepting service.

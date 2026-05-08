@@ -205,6 +205,76 @@ const Dashboard = (() => {
     return Array.from(document.querySelectorAll("[data-server]")).map(c => c.dataset.server);
   }
 
+  // ---- Disks (optional Storage section) ----
+  function _diskTempClass(temp) {
+    if (temp >= 50) return "crit";
+    if (temp >= 40) return "warn";
+    return "ok";
+  }
+
+  function _capacityClass(pct) {
+    if (pct >= 95) return "crit";
+    if (pct >= 85) return "warn";
+    return "ok";
+  }
+
+  function _diskTypeBadge(type) {
+    if (!type) return "data";
+    const t = type.toLowerCase();
+    if (t === "parity")  return "parity";
+    if (t === "cache")   return "cache";
+    if (t === "pool")    return "pool";
+    if (t === "flash")   return "flash";
+    return "data";
+  }
+
+  async function _refreshDisks() {
+    const grid = document.getElementById("disk-grid");
+    if (!grid) return;
+    try {
+      const res = await fetch("/api/disks");
+      if (!res.ok) return;
+      const payload = await res.json();
+      const disks = payload.disks || [];
+      const asOf = document.getElementById("storage-as-of");
+      if (asOf && payload.as_of) {
+        const t = new Date(payload.as_of);
+        asOf.textContent = "as of " + t.toLocaleTimeString();
+      }
+      if (!disks.length) {
+        grid.innerHTML = '<span style="color:var(--muted);font-size:12px">No disks reported</span>';
+        return;
+      }
+      grid.innerHTML = disks.map(d => {
+        const tCls = _diskTempClass(d.temp);
+        const cCls = _capacityClass(d.capacity_pct);
+        const typeBadge = _diskTypeBadge(d.disk_type);
+        const showCap = d.capacity_pct > 0;
+        const healthDot = (d.health || "UNKNOWN").toUpperCase();
+        const healthCls = healthDot === "PASS" ? "ok"
+                         : healthDot === "WARN" ? "warn"
+                         : healthDot === "FAIL" ? "crit"
+                         : "ns";
+        const spunIcon = d.spun_up === false ? '<span class="disk-spundown" title="Spun down">⏸</span>' : '';
+        return `
+          <div class="disk-tile ${tCls}">
+            <div class="disk-row-top">
+              <span class="disk-name" title="${d.disk_name}">${d.disk_name}</span>
+              <span class="disk-type-badge ${typeBadge}">${d.disk_type || 'disk'}</span>
+            </div>
+            <div class="disk-temp">${_fmt(d.temp)}<span class="unit">°C</span> ${spunIcon}</div>
+            ${showCap ? `
+              <div class="disk-cap-bar">
+                <div class="fill ${cCls}" style="width:${Math.min(100, d.capacity_pct)}%"></div>
+              </div>
+              <div class="disk-cap-label">${d.capacity_pct}% used</div>
+            ` : ''}
+            <span class="disk-health-dot ${healthCls}" title="SMART: ${healthDot}"></span>
+          </div>`;
+      }).join("");
+    } catch (_) {}
+  }
+
   function init() {
     _serverIds().forEach(sid => {
       FanControl.initServer(sid);
@@ -217,6 +287,7 @@ const Dashboard = (() => {
   async function _doRefresh() {
     await Promise.all(_serverIds().map(s => _refreshServer(s)));
     _refreshAlerts();
+    _refreshDisks();
     const el = document.getElementById("last-updated");
     if (el) el.textContent = "Updated: " + new Date().toLocaleTimeString();
   }

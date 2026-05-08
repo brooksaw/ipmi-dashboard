@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 
 from ..alerts import get_active_alerts
 from ..config import FAN_PRESETS, SERVERS
+from ..disks import ENABLED as DISKS_ENABLED, get_disks
 from ..fan_control import _save_fan_state, get_fan_state, is_auto_mode, set_fan_mode
 from ..ipmi import get_power_status, get_sel_events, get_sensor_data, set_fan_zone, set_power
-from ..models import Alert, FanControlLog, PowerEvent, SensorReading
+from ..models import Alert, DiskReading, FanControlLog, PowerEvent, SensorReading
 from ..notifications import send_event
 
 log = logging.getLogger(__name__)
@@ -152,6 +153,87 @@ def list_alerts():
     with _db_session() as session:
         alerts = get_active_alerts(session)
     return jsonify(alerts)
+
+
+# ---------------------------------------------------------------------------
+# Disk monitoring (optional plugin, off when DISKS_ENABLED unset)
+# ---------------------------------------------------------------------------
+
+@api.get("/disks")
+def disks_now():
+    """Latest disk reading per disk_name from the most recent poll cycle."""
+    if not DISKS_ENABLED:
+        return jsonify({"enabled": False, "disks": []})
+
+    from sqlalchemy import func
+
+    with _db_session() as session:
+        latest_ts = session.query(func.max(DiskReading.timestamp)).scalar()
+        if latest_ts is None:
+            return jsonify({"enabled": True, "disks": []})
+
+        rows = (
+            session.query(DiskReading)
+            .filter(DiskReading.timestamp == latest_ts)
+            .order_by(DiskReading.disk_name.asc())
+            .all()
+        )
+
+    return jsonify({
+        "enabled": True,
+        "as_of": latest_ts.isoformat() if latest_ts else None,
+        "disks": [
+            {
+                "disk_name": r.disk_name,
+                "disk_type": r.disk_type,
+                "temp": r.temp,
+                "capacity_pct": r.capacity_pct,
+                "health": r.health,
+                "spun_up": r.spun_up,
+            }
+            for r in rows
+        ],
+    })
+
+
+@api.get("/disks/history/<path:disk_name>")
+def disks_history(disk_name: str):
+    """Time-series temperature for a single disk (path: matches disks with slashes)."""
+    if not DISKS_ENABLED:
+        return jsonify({"disk_name": disk_name, "data": []})
+
+    try:
+        hours = int(request.args.get("hours", 24))
+    except ValueError:
+        return jsonify({"error": "hours must be an integer"}), 400
+    hours = max(1, min(hours, 720))
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    with _db_session() as session:
+        rows = (
+            session.query(DiskReading)
+            .filter(
+                DiskReading.disk_name == disk_name,
+                DiskReading.timestamp >= cutoff,
+            )
+            .order_by(DiskReading.timestamp.asc())
+            .all()
+        )
+
+    return jsonify({
+        "disk_name": disk_name,
+        "hours": hours,
+        "data": [
+            {
+                "timestamp": r.timestamp.isoformat(),
+                "temp": r.temp,
+                "capacity_pct": r.capacity_pct,
+                "health": r.health,
+            }
+            for r in rows
+        ],
+    })
 
 
 @api.post("/power/<server_id>")
