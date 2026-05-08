@@ -1,0 +1,27 @@
+# Default compose: single-server config via env vars in .env
+# For multi-server: copy compose.multi.example.yaml to compose.yaml and follow servers.example.yaml.
+
+services:
+  ipmi-dashboard:
+    build: .
+    image: ipmi-dashboard:latest
+    container_name: ipmi-dashboard
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    environment:
+      - IPMI_HOST=${IPMI_HOST}
+      - IPMI_USER=${IPMI_USER:-ADMIN}
+      - IPMI_PASS=${IPMI_PASS}
+      - IPMI_BOARD=${IPMI_BOARD:-X11}
+      - IPMI_NAME=${IPMI_NAME:-Server}
+      - IPMI_ID=${IPMI_ID:-server1}
+      - WEB_PORT=8080
+      - POLL_INTERVAL=${POLL_INTERVAL:-30}
+      - HISTORY_RETENTION_DAYS=${HISTORY_RETENTION_DAYS:-30}
+      - CPU_WARN_C=${CPU_WARN_C:-75}
+      - CPU_CRIT_C=${CPU_CRIT_C:-90}
+      - INLET_WARN_C=${INLET_WARN_C:-45}
+      - FAN_MIN_RPM=${FAN_MIN_RPM:-500}
+    volumes:
+      - ./data:/app/data

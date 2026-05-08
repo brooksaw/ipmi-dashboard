@@ -1,0 +1,19 @@
+# Multi-server config. Reference passwords from environment with ${VAR_NAME}
+# so you never commit secrets to git. Set the env vars in your .env file.
+#
+# board: X11 (two fan zones) or X10 (single zone)
+
+servers:
+  - id: server1
+    name: Rack-A
+    board: X11
+    host: 192.168.1.100
+    user: ADMIN
+    password: ${SERVER1_IPMI_PASS}
+
+  - id: server2
+    name: Rack-B
+    board: X10
+    host: 192.168.1.101
+    user: ADMIN
+    password: ${SERVER2_IPMI_PASS}

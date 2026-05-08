@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPMI Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>IPMI Dashboard</h1>
+  <span id="last-updated">Loading…</span>
+</header>
+
+<div id="alert-banner">
+  <strong class="alert-title">Active Alerts</strong>
+  <ul></ul>
+</div>
+
+<main>
+
+{% if not servers %}
+  <div class="server-card" style="text-align:center; padding:40px;">
+    <h2 style="margin:0 0 8px 0;">No servers configured</h2>
+    <p style="color:var(--muted); margin:0;">
+      Set <code>IPMI_HOST</code> / <code>IPMI_USER</code> / <code>IPMI_PASS</code> for a single server,
+      or mount a <code>servers.yaml</code> and point <code>SERVERS_CONFIG</code> at it.
+      See the README for examples.
+    </p>
+  </div>
+{% endif %}
+
+{% for s in servers %}
+  <div class="server-card" data-server="{{ s.id }}">
+    <div class="server-header">
+      <div>
+        <span class="server-name">{{ s.name }}</span>
+        <span class="server-host">{{ s.board }} · {{ s.host }}</span>
+      </div>
+      <div class="header-power">
+        <span class="power-state" data-power-display>UNKNOWN</span>
+        <button class="btn btn-power btn-power-on"    data-action="on">On</button>
+        <button class="btn btn-power btn-power-off"   data-action="off">Off</button>
+        <button class="btn btn-power btn-power-cycle" data-action="cycle">Cycle</button>
+        <button class="btn btn-power btn-power-reset" data-action="reset">Reset</button>
+      </div>
+    </div>
+    <div class="card-section">
+      <div class="sensor-grid compact-grid" id="{{ s.id }}-sensors">
+        <span style="color:var(--muted);font-size:12px">Loading…</span>
+      </div>
+    </div>
+    <div class="card-section">
+      <div class="section-title">History (6h)</div>
+      <div class="chart-grid" id="{{ s.id }}-charts"></div>
+    </div>
+    <div class="card-section">
+      <details>
+        <summary>Fan Control</summary>
+        <div class="fan-controls" style="margin-top:10px">
+          <div class="preset-row">
+            <button class="btn btn-preset btn-auto-active" data-preset="auto">Auto</button>
+            <button class="btn btn-preset" data-preset="quiet">Quiet</button>
+            <button class="btn btn-preset" data-preset="balanced">Balanced</button>
+            <button class="btn btn-preset" data-preset="performance">Performance</button>
+            <button class="btn btn-preset" data-preset="full">Full</button>
+          </div>
+          <div class="zone-sliders">
+            <div class="zone-row">
+              <span class="zone-label">Zone 0{% if s.board == 'X11' %} (CPU){% endif %}</span>
+              <input type="range" min="0" max="100" value="40" data-zone="0">
+              <span class="zone-value" data-zone-display="0">40%</span>
+            </div>
+            {% if s.board == 'X11' %}
+            <div class="zone-row">
+              <span class="zone-label">Zone 1 (Peripheral)</span>
+              <input type="range" min="0" max="100" value="50" data-zone="1">
+              <span class="zone-value" data-zone-display="1">50%</span>
+            </div>
+            {% endif %}
+          </div>
+          <button class="btn btn-apply-fan">Apply Zone{% if s.board == 'X11' %}s{% endif %}</button>
+          <div class="fan-log-section" style="margin-top:14px">
+            <div class="fan-log-title">Recent auto adjustments</div>
+            <table class="fan-log-table" id="{{ s.id }}-fan-log">
+              <thead><tr><th>When</th><th>Zone</th><th>Trigger</th><th>Duty</th></tr></thead>
+              <tbody><tr><td colspan="4" style="color:var(--muted)">No adjustments yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </div>
+    <div class="card-section">
+      <details>
+        <summary>System Event Log</summary>
+        <div style="margin-top:10px; overflow-x:auto;">
+          <table class="sel-table" id="{{ s.id }}-sel">
+            <thead><tr><th>ID</th><th>Date</th><th>Time</th><th>Description</th><th>Assert</th></tr></thead>
+            <tbody><tr><td colspan="5" style="color:var(--muted)">Expand to load…</td></tr></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+    <div class="card-section">
+      <details>
+        <summary>Voltages</summary>
+        <div class="voltage-mini-grid" id="{{ s.id }}-voltages" style="margin-top:8px">
+          <span style="color:var(--muted);font-size:11px">No data</span>
+        </div>
+      </details>
+    </div>
+  </div>
+{% endfor %}
+
+</main>
+
+<footer>
+  IPMI Dashboard · auto-refresh every 30s · <a href="/api/servers">/api</a>
+</footer>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/fan_control.js"></script>
+<script src="/static/js/dashboard.js"></script>
+
+<script>
+document.querySelectorAll("details").forEach(details => {
+  details.addEventListener("toggle", async () => {
+    if (!details.open) return;
+    const card = details.closest("[data-server]");
+    if (!card) return;
+    const serverId = card.dataset.server;
+
+    // Fan control panel: refresh fan log
+    if (details.querySelector(".fan-controls")) {
+      Dashboard.loadFanLog(serverId);
+      return;
+    }
+
+    // SEL panel
+    const tbody = details.querySelector("table.sel-table tbody");
+    if (tbody) {
+      try {
+        const res = await fetch(`/api/events/${serverId}?count=20`);
+        const data = await res.json();
+        const events = data.events || [];
+        if (!events.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No events</td></tr>'; return; }
+        tbody.innerHTML = events.map(e => `<tr><td>${e.id}</td><td>${e.date}</td><td>${e.time}</td><td>${e.description}</td><td>${e.assertion}</td></tr>`).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--crit)">${err.message}</td></tr>`;
+      }
+    }
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+.env
+servers.yaml
+compose.yaml.local
+data/
+*.db
+*.db-journal
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+*.bak
+*.bak.*
