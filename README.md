@@ -76,6 +76,27 @@ Set `RACKA_IPMI_PASS` and `RACKB_IPMI_PASS` in `.env` (which is git-ignored).
 
 ---
 
+## Unraid (managed Docker app)
+
+A pre-built `Container` template lives at [`unraid-template.xml`](unraid-template.xml). To install it as a managed Unraid app (proper UI, autostart toggle, "Check for updates", and CA Auto Update Applications support):
+
+1. **SSH into your Unraid box** and drop the template:
+   ```bash
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-ipmi-dashboard.xml \
+     https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/unraid-template.xml
+   ```
+
+2. **In Unraid web UI** → Docker tab → **Add Container**
+3. Click the **Template** dropdown → pick `ipmi-dashboard` from the bottom of the list
+4. Fill in `IPMI_HOST`, `IPMI_USER`, `IPMI_PASS` (and other vars if needed)
+5. Apply
+
+The container now shows up properly (no more "3rd Party"), has an Autostart checkbox, and can be auto-updated by the **CA Auto Update Applications** plugin (Apps → Search "auto update" → install).
+
+The image is published to **GitHub Container Registry** at `ghcr.io/brooksaw/ipmi-dashboard:latest` — Unraid's update check pulls from there.
+
+---
+
 ## Synology Container Manager
 
 If you'd rather use the DSM GUI:
