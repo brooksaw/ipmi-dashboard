@@ -1,5 +1,17 @@
 FROM python:3.12-slim
 
+# OCI standard labels — surface in Unraid's Version column + Docker Hub / GHCR UI
+ARG VERSION=dev
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="IPMI Dashboard" \
+      org.opencontainers.image.description="Multi-server Supermicro BMC dashboard with fan control, alerts, power control, SEL log, and webhook notifications." \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="https://github.com/brooksaw/ipmi-dashboard" \
+      org.opencontainers.image.url="https://github.com/brooksaw/ipmi-dashboard" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="brooksaw"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
