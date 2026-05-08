@@ -1,10 +1,27 @@
 # IPMI Dashboard
 
-A self-hosted web UI for monitoring and controlling Supermicro servers over IPMI/BMC. Live sensor readings, 6-hour history charts, alerting, fan control with presets and auto curves, power on/off/cycle/reset, and the System Event Log — all from one Docker container.
+A self-hosted web UI for monitoring and controlling Supermicro servers over IPMI/BMC. Live sensor readings, 6-hour history charts, alerting, fan control with presets and auto curves, power on/off/cycle/reset, the System Event Log, plus optional Unraid disk monitoring and webhook notifications — all from one Docker container.
 
-Works with any Supermicro X10 or X11 board that supports IPMI 2.0 LAN+. One container can monitor multiple servers.
+Works with any Supermicro X10 / X11 / X12 / X13 / H11 / H12 board that speaks IPMI 2.0 LAN+. One container can monitor multiple servers.
 
-![dashboard screenshot placeholder](docs/screenshot.png)
+![Dashboard overview](docs/screenshots/dashboard-overview.png)
+
+<details>
+<summary>More screenshots</summary>
+
+### Storage / disk health (optional Unraid plugin)
+![Disk monitoring](docs/screenshots/storage.png)
+
+### Fan control with hysteresis curve + adjustment log
+![Fan control](docs/screenshots/fan-control.png)
+
+### System Event Log
+![SEL log](docs/screenshots/sel-log.png)
+
+### Multi-server fleet view
+![Multi server](docs/screenshots/multi-server.png)
+
+</details>
 
 ---
 

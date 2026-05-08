@@ -1,9 +1,12 @@
 """
 Alert evaluation and lifecycle management.
 
-evaluate_alerts() compares the latest SensorReadings against ALERT_THRESHOLDS,
-opens new Alert rows when a threshold is breached, and clears them when the
-reading returns to normal.
+evaluate_alerts() compares the latest SensorReadings against the active
+thresholds (settings.json overrides env vars), opens new Alert rows when
+a threshold is breached, and clears them when the reading returns to normal.
+
+Thresholds are read fresh at every poll, so changes via the settings UI
+take effect on the next poll cycle (no restart needed).
 """
 
 import logging
@@ -11,34 +14,58 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from .config import ALERT_THRESHOLDS
+from . import settings_store
+from .config import ALERT_THRESHOLDS  # used as last-resort defaults
 from .models import Alert, SensorReading
 from .notifications import send_event
 
 log = logging.getLogger(__name__)
 
 
-def _threshold_level(sensor_type: str, sensor_name: str, value: float) -> str | None:
-    """Return 'crit', 'warn', or None based on thresholds."""
+def _live_thresholds() -> dict:
+    """Build the active threshold map from settings.json -> env -> defaults."""
+    d = ALERT_THRESHOLDS  # built-in defaults from env
+    return {
+        "cpu": {
+            "warn": settings_store.get_float("alerts.cpu.warn", "CPU_WARN_C", d["cpu"]["warn"]),
+            "crit": settings_store.get_float("alerts.cpu.crit", "CPU_CRIT_C", d["cpu"]["crit"]),
+        },
+        "inlet": {
+            "warn": settings_store.get_float("alerts.inlet.warn", "INLET_WARN_C", d["inlet"]["warn"]),
+            "crit": d["inlet"].get("crit"),
+        },
+        "fan": {
+            "min": settings_store.get_float("alerts.fan.min", "FAN_MIN_RPM", d["fan"]["min"]),
+        },
+        "disk_temp": {
+            "warn": settings_store.get_float("alerts.disk_temp.warn", "DISK_WARN_C", d["disk_temp"]["warn"]),
+            "crit": settings_store.get_float("alerts.disk_temp.crit", "DISK_CRIT_C", d["disk_temp"]["crit"]),
+        },
+        "disk_capacity": {
+            "warn": settings_store.get_float("alerts.disk_capacity.warn", "DISK_CAPACITY_WARN_PCT", d["disk_capacity"]["warn"]),
+            "crit": settings_store.get_float("alerts.disk_capacity.crit", "DISK_CAPACITY_CRIT_PCT", d["disk_capacity"]["crit"]),
+        },
+    }
+
+
+def _threshold_level(sensor_type: str, sensor_name: str, value: float, t: dict) -> str | None:
+    """Return 'crit', 'warn', or None based on thresholds (passed in for hot-reload)."""
     name_lower = sensor_name.lower()
 
-    # CPU temperature
     if sensor_type == "temp" and any(k in name_lower for k in ("cpu", "processor")):
-        cpu = ALERT_THRESHOLDS["cpu"]
+        cpu = t["cpu"]
         if cpu.get("crit") is not None and value >= cpu["crit"]:
             return "crit"
         if cpu.get("warn") is not None and value >= cpu["warn"]:
             return "warn"
 
-    # Inlet temperature
     elif sensor_type == "temp" and "inlet" in name_lower:
-        inlet = ALERT_THRESHOLDS["inlet"]
+        inlet = t["inlet"]
         if inlet.get("warn") is not None and value >= inlet["warn"]:
             return "warn"
 
-    # Fan RPM — low is bad
     elif sensor_type == "fan":
-        fan = ALERT_THRESHOLDS["fan"]
+        fan = t["fan"]
         if fan.get("min") is not None and value < fan["min"]:
             return "crit"
 
@@ -51,9 +78,10 @@ def evaluate_alerts(server: str, readings: list[dict], session: Session) -> None
     Opens new Alert rows for new breaches; sets cleared_at for resolved ones.
     """
     breaches: dict[str, tuple[str, float]] = {}  # sensor_name -> (level, value)
+    t = _live_thresholds()
 
     for r in readings:
-        level = _threshold_level(r["sensor_type"], r["name"], r["value"])
+        level = _threshold_level(r["sensor_type"], r["name"], r["value"], t)
         if level:
             breaches[r["name"]] = (level, r["value"])
 
@@ -111,8 +139,9 @@ def evaluate_disk_alerts(disks: list[dict], session: Session) -> None:
     DISK_SERVER = "_disks"
     breaches: dict[str, tuple[str, float]] = {}
 
-    temp_t = ALERT_THRESHOLDS["disk_temp"]
-    cap_t = ALERT_THRESHOLDS["disk_capacity"]
+    t = _live_thresholds()
+    temp_t = t["disk_temp"]
+    cap_t = t["disk_capacity"]
 
     for d in disks:
         name = d["disk_name"]
