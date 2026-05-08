@@ -76,24 +76,38 @@ Set `RACKA_IPMI_PASS` and `RACKB_IPMI_PASS` in `.env` (which is git-ignored).
 
 ---
 
-## Unraid (managed Docker app)
+## Unraid
 
-A pre-built `Container` template lives at [`unraid-template.xml`](unraid-template.xml). To install it as a managed Unraid app (proper UI, autostart toggle, "Check for updates", and CA Auto Update Applications support):
+### Option A — Install via Community Applications (recommended)
 
-1. **SSH into your Unraid box** and drop the template:
-   ```bash
-   wget -O /boot/config/plugins/dockerMan/templates-user/my-ipmi-dashboard.xml \
-     https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/unraid-template.xml
-   ```
+Once this repo is listed in [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/):
 
-2. **In Unraid web UI** → Docker tab → **Add Container**
-3. Click the **Template** dropdown → pick `ipmi-dashboard` from the bottom of the list
-4. Fill in `IPMI_HOST`, `IPMI_USER`, `IPMI_PASS` (and other vars if needed)
-5. Apply
+1. **Apps** tab → search **`ipmi-dashboard`**
+2. Click **Install** → fill in `IPMI_HOST`, `IPMI_USER`, `IPMI_PASS`
+3. **Apply**
 
-The container now shows up properly (no more "3rd Party"), has an Autostart checkbox, and can be auto-updated by the **CA Auto Update Applications** plugin (Apps → Search "auto update" → install).
+Auto-update via [CA Auto Update Applications](https://forums.unraid.net/topic/47689-plugin-ca-auto-update-applications/) plugin (Apps → Search "auto update" → install → enable for ipmi-dashboard).
 
-The image is published to **GitHub Container Registry** at `ghcr.io/brooksaw/ipmi-dashboard:latest` — Unraid's update check pulls from there.
+### Option B — Manual template (works today, before CA approval)
+
+```bash
+# SSH into Unraid
+wget -O /boot/config/plugins/dockerMan/templates-user/my-ipmi-dashboard.xml \
+  https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/templates/ipmi-dashboard.xml
+```
+
+Then in Unraid web UI → **Docker** tab → **Add Container** → **Template** dropdown → pick `ipmi-dashboard` from bottom of list. Fill in vars + Apply.
+
+The container shows up as a managed app — no "3rd Party" badge, Autostart checkbox works, image pulls from `ghcr.io/brooksaw/ipmi-dashboard:latest`.
+
+### For maintainers — submit to Community Applications
+
+This repo is already structured for CA. To get listed:
+
+1. Make sure the GHCR image exists at `ghcr.io/brooksaw/ipmi-dashboard:latest` (built by GH Actions)
+2. Make the GHCR package **public** at https://github.com/users/brooksaw/packages
+3. Open a PR to [Squidly271/AppFeed](https://github.com/Squidly271/AppFeed) — add `https://github.com/brooksaw/ipmi-dashboard` to `repositoryList.json`
+4. Once merged (1-3 days), CA scrapes our `templates/` folder and the app shows up in everyone's CA Apps tab.
 
 ---
 

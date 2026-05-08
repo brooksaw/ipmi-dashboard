@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>ipmi-dashboard</Name>
+  <Repository>ghcr.io/brooksaw/ipmi-dashboard:latest</Repository>
+  <Registry>https://github.com/brooksaw/ipmi-dashboard/pkgs/container/ipmi-dashboard</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/brooksaw/ipmi-dashboard/issues</Support>
+  <Project>https://github.com/brooksaw/ipmi-dashboard</Project>
+  <Overview>Multi-server Supermicro BMC (IPMI) dashboard. Live sensor grid (temps + fans), 6h history charts, threshold alerts with auto-clear, fan control with hysteresis (no churning), power on/off/cycle/reset, System Event Log viewer. Webhook notifications (Discord/Slack/ntfy/generic). Talks IPMI v2 LAN+ via ipmitool. One server via env vars or many via servers.yaml. X10/X11 boards (X10SRi auto-detected).</Overview>
+  <Category>Tools: Status: Network:Management</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/templates/ipmi-dashboard.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/static/img/supermicro.svg</Icon>
+  <Changes>### v2.0.2
+- Unraid managed-app template (no more 3rd Party badge)
+- Multi-arch image (amd64+arm64) auto-published to GHCR
+
+### v2.0.1
+- X10SRi fan control auto-fallback (X11 cmd first, X10 legacy backup)
+- Manual fan changes now logged alongside auto curve adjustments
+- Webhook notifications: alert.opened/updated/cleared, power.action/failed
+
+### v2.0.0
+- Full rewrite as Flask web UI
+- Multi-server, 6h history charts, alert lifecycle, fan curve hysteresis
+  </Changes>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="8080" Default="8082" Mode="tcp" Description="Port the web UI listens on" Type="Port" Display="always" Required="true" Mask="false">8082</Config>
+  <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/ipmi-dashboard/data" Mode="rw" Description="SQLite history + fan state file" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/ipmi-dashboard/data</Config>
+  <Config Name="IPMI_HOST" Target="IPMI_HOST" Default="" Mode="" Description="BMC IP address (single-server mode)" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="IPMI_USER" Target="IPMI_USER" Default="ADMIN" Mode="" Description="IPMI username" Type="Variable" Display="always" Required="true" Mask="false">ADMIN</Config>
+  <Config Name="IPMI_PASS" Target="IPMI_PASS" Default="" Mode="" Description="IPMI password" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="IPMI_BOARD" Target="IPMI_BOARD" Default="X11" Mode="" Description="Board generation: X11 (default, also handles X10SRi) or X10_LEGACY for old X9/X10" Type="Variable" Display="always" Required="false" Mask="false">X11</Config>
+  <Config Name="IPMI_NAME" Target="IPMI_NAME" Default="Server" Mode="" Description="Display name in the dashboard" Type="Variable" Display="always" Required="false" Mask="false">Server</Config>
+  <Config Name="IPMI_ID" Target="IPMI_ID" Default="server1" Mode="" Description="URL-safe id (used in /api/sensors/ID)" Type="Variable" Display="always" Required="false" Mask="false">server1</Config>
+  <Config Name="WEB_PORT" Target="WEB_PORT" Default="8080" Mode="" Description="Internal port (leave 8080 unless you know why)" Type="Variable" Display="advanced" Required="false" Mask="false">8080</Config>
+  <Config Name="POLL_INTERVAL" Target="POLL_INTERVAL" Default="30" Mode="" Description="Sensor poll interval in seconds" Type="Variable" Display="advanced" Required="false" Mask="false">30</Config>
+  <Config Name="HISTORY_RETENTION_DAYS" Target="HISTORY_RETENTION_DAYS" Default="30" Mode="" Description="Auto-prune sensor history older than this" Type="Variable" Display="advanced" Required="false" Mask="false">30</Config>
+  <Config Name="CPU_WARN_C" Target="CPU_WARN_C" Default="75" Mode="" Description="CPU temp warning threshold (C)" Type="Variable" Display="advanced" Required="false" Mask="false">75</Config>
+  <Config Name="CPU_CRIT_C" Target="CPU_CRIT_C" Default="90" Mode="" Description="CPU temp critical threshold (C)" Type="Variable" Display="advanced" Required="false" Mask="false">90</Config>
+  <Config Name="INLET_WARN_C" Target="INLET_WARN_C" Default="45" Mode="" Description="Inlet temp warning threshold (C)" Type="Variable" Display="advanced" Required="false" Mask="false">45</Config>
+  <Config Name="FAN_MIN_RPM" Target="FAN_MIN_RPM" Default="500" Mode="" Description="Fan stall threshold (RPM)" Type="Variable" Display="advanced" Required="false" Mask="false">500</Config>
+  <Config Name="NOTIFY_WEBHOOK_URL" Target="NOTIFY_WEBHOOK_URL" Default="" Mode="" Description="Optional webhook URL for alert notifications (Discord/Slack/ntfy/custom)" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="NOTIFY_WEBHOOK_FORMAT" Target="NOTIFY_WEBHOOK_FORMAT" Default="generic" Mode="" Description="Webhook format: generic | discord | slack | ntfy" Type="Variable" Display="advanced" Required="false" Mask="false">generic</Config>
+</Container>
