@@ -19,8 +19,18 @@ const Charts = (() => {
     return COLORS[type] || COLORS.default;
   }
 
+  // Per-type Y-axis floor / suggested-min so 100 RPM of jitter on a 1600 RPM
+  // fan doesn't get auto-zoomed into looking like wild oscillation.
+  const Y_HINT = {
+    temp:    { suggestedMin: 20, suggestedMax: 50 },   // typical idle temps
+    fan:     { suggestedMin: 0,  suggestedMax: 2000 }, // anchored to 0
+    voltage: { /* let it auto-scale; voltages are tightly regulated */ },
+    power:   { suggestedMin: 0 },
+  };
+
   function create(canvas, type = "default") {
     const { line, fill } = _color(type);
+    const yHint = Y_HINT[type] || {};
     return new Chart(canvas, {
       type: "line",
       data: {
@@ -60,6 +70,7 @@ const Charts = (() => {
               maxTicksLimit: 4,
             },
             border: { display: false },
+            ...yHint,
           },
         },
       },
