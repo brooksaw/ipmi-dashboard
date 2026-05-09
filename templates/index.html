@@ -10,7 +10,16 @@
 
 <header>
   <h1>IPMI Dashboard</h1>
-  <span id="last-updated">Loading…</span>
+  <div class="header-right">
+    <span id="last-updated">Loading…</span>
+    <button class="icon-btn" id="open-settings" type="button" title="Settings" aria-label="Open settings">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="8" cy="8" r="2.4"/>
+        <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8 3.4 3.4"
+              stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
 </header>
 
 <div id="alert-banner">
@@ -140,10 +149,35 @@
 
 <div id="toast"></div>
 
+<!-- ============== Settings modal ============== -->
+<div class="scrim" id="settings-scrim" aria-hidden="true">
+  <div class="settings-panel" role="dialog" aria-label="Settings" aria-modal="true">
+    <header class="st-head">
+      <span class="st-head-title">Settings</span>
+      <button class="st-restart-chip" id="st-restart-chip" type="button"
+              title="Some changes need a container restart to take effect"
+              style="display:none">
+        <span class="st-restart-dot"></span>
+        Restart needed (<span class="st-restart-count">0</span>)
+      </button>
+      <span class="st-head-spacer"></span>
+      <button class="st-close" id="st-close" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" aria-hidden="true">
+          <path d="M3 3l10 10M13 3 3 13"/>
+        </svg>
+      </button>
+    </header>
+    <aside class="st-side" id="st-side"></aside>
+    <section class="st-body" id="st-body"></section>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="/static/js/charts.js"></script>
 <script src="/static/js/fan_control.js"></script>
 <script src="/static/js/dashboard.js"></script>
+<script src="/static/js/settings.js"></script>
 
 <script>
 document.querySelectorAll("details").forEach(details => {

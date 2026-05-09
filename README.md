@@ -25,8 +25,24 @@ Works with any Supermicro X10 / X11 / X12 / X13 / H11 / H12 board that speaks IP
 
 ---
 
+## What's new in v2.2.0
+
+A **Settings modal** lives behind the gear icon (top-right of the dashboard). Configure everything from the browser:
+
+- **Servers** — add/edit/delete BMCs with a Test Connection button (runs `ipmitool mc info` against the credentials you typed before saving)
+- **Disks** — toggle Unraid disk monitoring on/off, swap between local file mount and SSH source, with a Test Source button
+- **Alerts** — tune CPU/inlet/fan/disk thresholds with **hot reload** (changes apply on the next poll cycle, no restart needed)
+- **Notifications** — set a webhook URL + format, mute individual events, send a test webhook
+- **Display** — poll interval and history retention
+- **About** — version, repo links, active config snapshot
+
+Settings persist in `data/settings.json` and layer over env vars at startup. A "Restart needed" pill in the modal header tells you which changes need a container restart vs which apply immediately.
+
+---
+
 ## What you get
 
+- **Settings UI** — gear icon → 6-tab modal, browser-based configuration, hot-reload for thresholds + webhooks
 - **Live sensors** — temperatures, fan RPMs, voltages, power state, refreshed every 30s
 - **History** — 6h time-series charts per sensor, persisted in SQLite
 - **Alerts** — threshold-based, with auto-clear when readings recover
@@ -34,7 +50,9 @@ Works with any Supermicro X10 / X11 / X12 / X13 / H11 / H12 board that speaks IP
 - **Auto fan curves** — temperature-driven duty cycle with hysteresis (won't thrash)
 - **Power control** — on, off, cycle, reset (gated behind a confirmation header)
 - **System Event Log** — last 50 entries per server, lazy-loaded
-- **Multi-server** — declare any number of servers in a YAML config
+- **Disk health** — Unraid disks.ini integration, per-disk temp + capacity + SMART
+- **Webhook notifications** — Discord, Slack, ntfy, or custom JSON; per-event mute toggles
+- **Multi-server** — add via Settings UI or declare in a YAML config
 
 ---
 

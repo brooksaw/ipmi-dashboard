@@ -19,9 +19,11 @@ def create_app() -> Flask:
 
     from .routes.api import api as api_bp
     from .routes.dashboard import dash as dash_bp
+    from .routes.settings_api import settings_api as settings_bp
 
     app.register_blueprint(api_bp)
     app.register_blueprint(dash_bp)
+    app.register_blueprint(settings_bp)
 
     init_db(DATABASE_URL)
     start_poller(DATABASE_URL)

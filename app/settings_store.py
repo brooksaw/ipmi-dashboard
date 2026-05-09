@@ -16,12 +16,13 @@ a crashed/killed container can't leave a half-written JSON.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +31,8 @@ log = logging.getLogger(__name__)
 SETTINGS_PATH = Path(os.environ.get("SETTINGS_PATH", "/app/data/settings.json"))
 
 # Settings keys that need a container restart to take effect (poller closures,
-# Flask app config, port bindings).
+# Flask app config, port bindings). Patterns are dotted paths; a path "X" also
+# matches any nested path "X.Y.Z" (so "servers" covers servers.{id}.host etc).
 RESTART_REQUIRED: set[str] = {
     "servers",
     "web_port",
@@ -44,12 +46,29 @@ RESTART_REQUIRED: set[str] = {
     "disks.ssh.key",
 }
 
+# Sensitive paths that should be masked when serializing settings for the API.
+# Supports fnmatch globs ("servers.*.password" matches every server's password).
+# Non-empty values are replaced with the SECRET_SENTINEL on output; the API
+# layer treats the sentinel on input as "leave unchanged" so the UI can
+# round-trip without re-entering passwords.
+SECRET_SENTINEL = "***SET***"
+SENSITIVE_PATHS: tuple[str, ...] = (
+    "notifications.webhook_url",
+    "disks.ssh.key",
+    "servers.*.password",
+)
+
 # In-memory cache of the parsed settings dict. Keep behind a lock so the
 # poller thread reading thresholds and the Flask thread writing don't race.
 _lock = threading.RLock()
 _state: dict[str, Any] = {}
 _loaded = False
 _revision = 0
+
+# Paths from RESTART_REQUIRED that have been changed since this process
+# started. Cleared on container restart (the module reinitializes). The UI
+# polls this to decide whether to show a "Restart required" pill.
+_pending_restart: set[str] = set()
 
 
 def _atomic_write(path: Path, content: str) -> None:
@@ -134,6 +153,7 @@ def patch(updates: dict[str, Any]) -> dict[str, Any]:
             _atomic_write(SETTINGS_PATH, json.dumps(_state, indent=2, sort_keys=True))
             _revision += 1
             log.info("settings patched (revision %d): %s", _revision, list(updates.keys()))
+            _track_restart_paths(_iter_dotted_paths(updates), prev=prev, new=_state)
             return json.loads(json.dumps(_state))
         except OSError as exc:
             _state = prev
@@ -151,6 +171,9 @@ def replace(new_state: dict[str, Any]) -> dict[str, Any]:
         try:
             _atomic_write(SETTINGS_PATH, json.dumps(_state, indent=2, sort_keys=True))
             _revision += 1
+            # On full replace, every RESTART_REQUIRED key is potentially
+            # changed; check each against prev to find actual diffs.
+            _track_restart_paths(RESTART_REQUIRED, prev=prev, new=_state)
             return json.loads(json.dumps(_state))
         except OSError as exc:
             _state = prev
@@ -164,6 +187,7 @@ def delete(path: str) -> bool:
     parts = path.split(".")
     with _lock:
         global _revision
+        prev = json.loads(json.dumps(_state))
         cur = _state
         for p in parts[:-1]:
             if not isinstance(cur, dict) or p not in cur:
@@ -174,6 +198,7 @@ def delete(path: str) -> bool:
         del cur[parts[-1]]
         _atomic_write(SETTINGS_PATH, json.dumps(_state, indent=2, sort_keys=True))
         _revision += 1
+        _track_restart_paths([path], prev=prev, new=_state)
         return True
 
 
@@ -183,6 +208,125 @@ def _deep_merge(base: dict[str, Any], updates: dict[str, Any]) -> None:
             _deep_merge(base[k], v)
         else:
             base[k] = v
+
+
+# ---------------------------------------------------------------------------
+# Pending-restart tracking
+# ---------------------------------------------------------------------------
+
+def _iter_dotted_paths(d: dict[str, Any], prefix: str = "") -> Iterator[str]:
+    """Yield every leaf path in a nested dict as 'a.b.c'. Empty dicts yield
+    their parent path so deletions still register."""
+    if not d:
+        if prefix:
+            yield prefix
+        return
+    for k, v in d.items():
+        path = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict) and v:
+            yield from _iter_dotted_paths(v, path)
+        else:
+            yield path
+
+
+def _path_get(d: dict[str, Any], path: str) -> Any:
+    """Walk dict via dotted path. Returns None if any segment missing."""
+    cur: Any = d
+    for p in path.split("."):
+        if not isinstance(cur, dict) or p not in cur:
+            return None
+        cur = cur[p]
+    return cur
+
+
+def _track_restart_paths(touched: Iterator[str], *, prev: dict, new: dict) -> None:
+    """For every touched path, if it (or an ancestor) is in RESTART_REQUIRED
+    AND the value actually changed between prev and new, record it.
+
+    Caller holds _lock.
+    """
+    for path in touched:
+        match = _matched_restart_root(path)
+        if match is None:
+            continue
+        if _path_get(prev, match) != _path_get(new, match):
+            _pending_restart.add(match)
+            log.info("Restart-required setting changed: %s", match)
+
+
+def _matched_restart_root(path: str) -> str | None:
+    """If `path` matches a RESTART_REQUIRED entry exactly or as a descendant,
+    return that entry. Otherwise None."""
+    for required in RESTART_REQUIRED:
+        if path == required or path.startswith(required + "."):
+            return required
+    return None
+
+
+def pending_restart() -> list[str]:
+    """Sorted list of restart-required keys whose value differs from disk
+    state at process start. Empty if nothing requires a restart."""
+    _ensure_loaded()
+    with _lock:
+        return sorted(_pending_restart)
+
+
+def clear_pending_restart() -> None:
+    """Reset the pending-restart set. Called rarely — normally the set is
+    cleared by the container restart itself (module reinitializes)."""
+    with _lock:
+        _pending_restart.clear()
+
+
+# ---------------------------------------------------------------------------
+# Secret masking (for serializing settings to the API)
+# ---------------------------------------------------------------------------
+
+def _path_is_sensitive(path: str) -> bool:
+    return any(fnmatch.fnmatchcase(path, pat) for pat in SENSITIVE_PATHS)
+
+
+def mask_secrets(state: dict[str, Any]) -> dict[str, Any]:
+    """Return a deep-copied state with sensitive paths redacted.
+
+    - Empty/falsy values stay empty (so the UI can show "not configured").
+    - Non-empty values become SECRET_SENTINEL.
+    - Structural keys (dicts) are walked recursively.
+    """
+    return _mask_recurse(json.loads(json.dumps(state)), prefix="")
+
+
+def _mask_recurse(node: Any, prefix: str) -> Any:
+    if isinstance(node, dict):
+        return {k: _mask_recurse(v, f"{prefix}.{k}" if prefix else k) for k, v in node.items()}
+    if _path_is_sensitive(prefix) and node:
+        return SECRET_SENTINEL
+    return node
+
+
+def unmask_into(updates: dict[str, Any]) -> dict[str, Any]:
+    """Strip SECRET_SENTINEL values from a partial-update payload so a PATCH
+    that round-trips a masked GET doesn't overwrite the real secret with the
+    sentinel. Returns a deep-copied dict with sentinel leaves removed."""
+    cleaned = json.loads(json.dumps(updates))
+    _strip_sentinels(cleaned, prefix="")
+    return cleaned
+
+
+def _strip_sentinels(node: Any, prefix: str) -> None:
+    if not isinstance(node, dict):
+        return
+    drop = []
+    for k, v in list(node.items()):
+        path = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict):
+            _strip_sentinels(v, path)
+            if not v:  # cleaned-out subtree, drop it
+                drop.append(k)
+        elif _path_is_sensitive(path) and v == SECRET_SENTINEL:
+            drop.append(k)
+    for k in drop:
+        del node[k]
 
 
 # ---------------------------------------------------------------------------

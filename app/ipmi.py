@@ -238,3 +238,34 @@ def get_sel_events(server_cfg: dict, count: int = 50) -> list[dict]:
         })
 
     return list(reversed(events))  # newest first
+
+
+def test_connection(host: str, user: str, password: str, timeout: int = 5) -> tuple[bool, str]:
+    """Quick reachability + auth probe for a BMC. Used by Settings UI's
+    Test Connection button before saving credentials.
+
+    Runs `ipmitool mc info` which is the lightest IPMI 2.0 LAN+ command that
+    proves both connectivity and authentication. Returns:
+        (True,  "Manufacturer ... | Firmware ...")
+        (False, "<error>")  on timeout / auth failure / unreachable.
+
+    Never raises.
+    """
+    try:
+        raw = _run(host, user, password, ["mc", "info"], timeout=timeout)
+    except RuntimeError as exc:
+        return False, str(exc)
+
+    # Pull the headline fields for a friendly summary
+    summary_keys = ("Manufacturer Name", "Product Name", "Firmware Revision")
+    summary_parts: list[str] = []
+    for line in raw.splitlines():
+        if ":" not in line:
+            continue
+        k, _, v = line.partition(":")
+        k = k.strip()
+        v = v.strip()
+        if k in summary_keys and v:
+            summary_parts.append(f"{k}: {v}")
+    summary = " | ".join(summary_parts) if summary_parts else "Connected"
+    return True, summary

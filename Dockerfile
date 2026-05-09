@@ -4,7 +4,7 @@ FROM python:3.12-slim
 ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="IPMI Dashboard" \
-      org.opencontainers.image.description="Multi-server Supermicro BMC dashboard with fan control, alerts, power control, SEL log, and webhook notifications." \
+      org.opencontainers.image.description="Multi-server Supermicro BMC dashboard with Settings UI (browser-based: configure servers, thresholds, webhooks without restart), fan control, alerts, power control, SEL log, Unraid disk health, webhook notifications." \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.source="https://github.com/brooksaw/ipmi-dashboard" \
@@ -13,7 +13,9 @@ LABEL org.opencontainers.image.title="IPMI Dashboard" \
       org.opencontainers.image.vendor="brooksaw"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    APP_VERSION=${VERSION} \
+    APP_REVISION=${REVISION}
 
 WORKDIR /app
 

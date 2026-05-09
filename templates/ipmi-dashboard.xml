@@ -14,7 +14,29 @@
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/templates/ipmi-dashboard.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/brooksaw/ipmi-dashboard/main/static/img/icon.png</Icon>
-  <Changes>### v2.0.2
+  <Changes>### v2.2.0 — Settings UI
+- Settings modal behind a gear icon in the topbar — six tabs:
+  Servers (with Test Connection), Disks (with Test Source), Alerts (hot-reload thresholds),
+  Notifications (with Test Webhook + per-event mute), Display, About.
+- JSON-backed settings store with hot-reload for thresholds + webhook config.
+- Pending-restart pill tells you when a change needs a docker restart vs
+  takes effect on the next poll cycle.
+- New REST endpoints under /api/settings (GET/PATCH/DELETE plus three
+  /test/{server,disks,webhook} probes).
+
+### v2.1.1
+- Settings store backend (JSON-backed runtime config — UI lands in v2.2.0)
+- Threshold + webhook hot-reload (edit settings.json without restart)
+
+### v2.1.0
+- Unraid disk monitoring (local file mount or SSH source)
+- Per-disk SMART health, temp, capacity, spin state
+- Disk-temp + disk-capacity threshold alerts
+
+### v2.0.6
+- OCI image labels for Unraid Version column + update detection
+
+### v2.0.2
 - Unraid managed-app template (no more 3rd Party badge)
 - Multi-arch image (amd64+arm64) auto-published to GHCR
 
